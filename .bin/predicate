@@ -1,0 +1,46 @@
+#/usr/bin/sh
+
+### USAGE #####################################################################
+read -r -d '' USAGE <<EOF
+Filters lines from stdin or a pipe, based on a predicate, in the spirit of the
+"reduce" of a map-reduce (except without all the benefits of a real one).
+
+The predicate is an arbitrary command evaluated by sh that can contain
+occurences of '{}'. They all will be replaced by the line the predicate is
+applied on. If the predicate fails (i.e. the exit code of the command is not
+0), then the line will be discarded.
+
+Input lines must be null-delimited, and so is the output.
+
+USAGE
+
+  $0 [-h] PREDICATE
+
+OPTIONS
+
+  -h    Shows this help and exits
+
+EXAMPLES
+
+  List recursively all videos in a directory:
+
+    find . -print0 | $0 "file --mime-type -b {} | grep video"
+
+  Find all files containing 'FIXME', and output them separated by a newline
+  instead of a null (for readability):
+
+    find . -print0 | $0 "grep FIXME {}" | tr "\0" "\n"
+
+EOF
+###############################################################################
+
+if [ "$1" == "-h" ]; then
+  echo "$USAGE"
+  exit 0
+fi
+
+while IFS= read -d '' -r line; do
+  if printf '%s\0' "$line" | xargs -0 -i sh -c "$@" >/dev/null; then
+    printf '%s\0' "$line"
+  fi
+done
