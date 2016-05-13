@@ -1,20 +1,20 @@
 #/usr/bin/sh
 
 ### USAGE #####################################################################
-read -r -d '' USAGE <<EOF
+read -r -d '' USAGE <<'EOF'
 Filters lines from stdin or a pipe, based on a predicate, in the spirit of the
 "reduce" of a map-reduce (except without all the benefits of a real one).
 
 The predicate is an arbitrary command evaluated by sh that can contain
-occurences of '{}'. They all will be replaced by the line the predicate is
-applied on. If the predicate fails (i.e. the exit code of the command is not
-0), then the line will be discarded.
+occurences of the placeholder '{}'. They all will be replaced by the line the
+predicate is applied on. If the predicate fails (i.e. the exit code of the
+command is not 0), then the line will be discarded.
 
 Input lines must be null-delimited, and so is the output.
 
 USAGE
 
-  $0 [-h] PREDICATE
+  predicate [-h] PREDICATE
 
 OPTIONS
 
@@ -22,14 +22,21 @@ OPTIONS
 
 EXAMPLES
 
-  List recursively all videos in a directory:
+  List recursively all videos in a directory.
 
-    find . -print0 | $0 "file --mime-type -b {} | grep video"
+    find . -print0 | predicate "file --mime-type -b '{}' | grep video"
 
-  Find all files containing 'FIXME', and output them separated by a newline
-  instead of a null (for readability):
+  Find all files containing 'HACKME', and output them separated by a newline
+  instead of a null (for readability). Since file names can contain single
+  quotes, they must be escaped first to prevent injection (all other characters
+  are basically safe, because the filename placeholder is quoted with single
+  quotes).
 
-    find . -print0 | $0 "grep FIXME {}" | tr "\0" "\n"
+    find . -type f -print0 | \
+    sed "s:':'\"'\"':g" | \
+    predicate "grep HACKME '{}'" | \
+    sed "s:'\"'\"':':g" | \
+    tr "\0" "\n"
 
 EOF
 ###############################################################################
