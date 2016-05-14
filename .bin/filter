@@ -33,9 +33,9 @@ EXAMPLES
   quotes).
 
     find . -type f -print0 | \
-    sed "s:':'\"'\"':g" | \
+    sed s:\':\'\"\'\"\':g | \
     filter "grep HACKME '{}'" | \
-    sed "s:'\"'\"':':g" | \
+    sed s:\'\"\'\"\':\':g | \
     tr "\0" "\n"
 
 EOF
