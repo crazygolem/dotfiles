@@ -14,7 +14,7 @@ Input lines must be null-delimited, and so is the output.
 
 USAGE
 
-  predicate [-h] PREDICATE
+  filter [-h] PREDICATE
 
 OPTIONS
 
@@ -24,7 +24,7 @@ EXAMPLES
 
   List recursively all videos in a directory.
 
-    find . -print0 | predicate "file --mime-type -b '{}' | grep video"
+    find . -print0 | filter "file --mime-type -b '{}' | grep video"
 
   Find all files containing 'HACKME', and output them separated by a newline
   instead of a null (for readability). Since file names can contain single
@@ -34,7 +34,7 @@ EXAMPLES
 
     find . -type f -print0 | \
     sed "s:':'\"'\"':g" | \
-    predicate "grep HACKME '{}'" | \
+    filter "grep HACKME '{}'" | \
     sed "s:'\"'\"':':g" | \
     tr "\0" "\n"
 
