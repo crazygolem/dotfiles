@@ -20,34 +20,65 @@ OPTIONS
 
   -h    Shows this help and exits
 
+  -u    Do not quote the line when replacing the placeholder. By default the
+        line is quoted in order to prevent code injection.
+
 EXAMPLES
 
-  List recursively all videos in a directory.
+  List recursively all videos in a directory:
 
-    find . -print0 | filter "file --mime-type -b '{}' | grep video"
+    find . -print0 | filter "file --mime-type -b {} | grep video"
 
-  Find all files containing 'HACKME', and output them separated by a newline
-  instead of a null (for readability). Since file names can contain single
-  quotes, they must be escaped first to prevent injection (all other characters
-  are basically safe, because the filename placeholder is quoted with single
-  quotes).
+  To display the output separated by a newline instead of null, you can use tr:
+
+    find . -print0 | filter "true" | tr "\0" "\n"
+
+  Since file name can contain any characters except '/' and null, including
+  quotes and special shell characters, file names must be properly escaped.
+  This is the case by default, and the placeholder should not be surrouned by
+  quotes:
+
+    find . -print0 | filter "grep HACKME {}"
+
+  With this command, if one of the files returned by find is named e.g.:
+
+    $(rm -rf *)
+
+  the filter will treat it as a file name instead of a subshell command.
+
+  To handle escaping yourself, use can use the '-u' option, but if done
+  incorrectly you can still expose yourself to code injection, e.g. files named
+
+    '$(rm -rf *)'
+    "$(rm -rf *)"
+
+  will defeat resp.
+
+    filter -u "grep HACKME '{}'"
+    filter -u 'grep HACKME "{}"'
+
+  The following command is almost equivalent to using the default behavior of
+  quoting the line:
 
     find . -type f -print0 | \
     sed s:\':\'\"\'\"\':g | \
-    filter "grep HACKME '{}'" | \
-    sed s:\'\"\'\"\':\':g | \
-    tr "\0" "\n"
+    filter -u "grep HACKME '{}'" | \
+    sed s:\'\"\'\"\':\':g
 
 EOF
 ###############################################################################
 
-if [ "$1" == "-h" ]; then
-  echo "$USAGE"
-  exit 0
-fi
+while getopts 'hu' opt; do
+  case "$opt" in
+  h) echo "$USAGE"; exit 0 ;;
+  u) raw=1 ;;
+  esac
+done
+shift $((OPTIND-1))
 
 while IFS= read -d '' -r line; do
-  if printf '%s\0' "$line" | xargs -0 -i sh -c "$@" >/dev/null; then
+  f=%q; if (( raw )); then f=%s; fi
+  if printf "$f"'\0' "$line" | xargs -0 -i sh -c "$@" >/dev/null; then
     printf '%s\0' "$line"
   fi
 done
