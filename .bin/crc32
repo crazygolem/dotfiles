@@ -1,5 +1,8 @@
 #!/usr/bin/python
 
+# Compute the CRC32 checksum of files, with a nice output.
+#
+#
 # Version: 2016-01-22
 # Author: crazygolem
 # License: WTFPL Version 2 (http://www.wtfpl.net)
@@ -40,7 +43,7 @@ def crc32sum(stream):
     try:
         crc = 0
         fsize = os.fstat(stream.fileno()).st_size
-        bsize = 2**16           # 64k: arbitrary but balanced
+        bsize = 2**16               # 64k: arbitrary but balanced
         processed = 0
         for data in iter(lambda: stream.read(bsize), b''):
             crc = zlib.crc32(data, crc)
