@@ -70,6 +70,7 @@ EOF
 
 while getopts 'hu' opt; do
   case "$opt" in
+  \?) exit 1 ;;
   h) echo "$USAGE"; exit 0 ;;
   u) raw=1 ;;
   esac
@@ -77,8 +78,8 @@ done
 shift $((OPTIND-1))
 
 while IFS= read -d '' -r line; do
-  f=%q; if (( raw )); then f=%s; fi
-  if printf "$f"'\0' "$line" | xargs -0 -i sh -c "$@" >/dev/null; then
+  f=%q; (( raw )) && f=%s
+  if printf $f'\0' "$line" | xargs -0 -i sh -c "$@" >/dev/null; then
     printf '%s\0' "$line"
   fi
 done
