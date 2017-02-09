@@ -2,7 +2,7 @@
 
 ### USAGE #####################################################################
 read -r -d '' USAGE <<'EOF'
-Filters lines from stdin or a pipe, based on a predicate, in the spirit of the
+Filters lines from stdin or a pipe based on a predicate, in the spirit of the
 "reduce" of a map-reduce (except without all the benefits of a real one).
 
 The predicate is an arbitrary command evaluated by sh that can contain
@@ -10,11 +10,11 @@ occurences of the placeholder '{}'. They all will be replaced by the line the
 predicate is applied on. If the predicate fails (i.e. the exit code of the
 command is not 0), then the line will be discarded.
 
-Input lines must be null-delimited, and so is the output.
+Input lines must be null-terminated, and so is the output.
 
 USAGE
 
-  filter [-h] PREDICATE
+  filter [OPTION...] PREDICATE
 
 OPTIONS
 
@@ -22,6 +22,17 @@ OPTIONS
 
   -u    Do not quote the line when replacing the placeholder. By default the
         line is quoted in order to prevent code injection.
+
+  The following options are not part of the stable API, do not use them in
+  scripts.
+
+  -g    aka Garbage out. Output lines are newline-terminated. The output should
+        probably not be parsed.
+
+  -G    aka Garbage in, garbage out. Like -g, and also newlines in the input
+        are treated as line terminators (in addition to nulls). If you are too
+        lazy to convert newlines to nulls (and back) yourself, we'll do it for
+        you.
 
 EXAMPLES
 
@@ -68,18 +79,26 @@ EXAMPLES
 EOF
 ###############################################################################
 
-while getopts 'hu' opt; do
+# Defaults
+it=           # Input line terminator (in addition to null)
+ot='\0'       # Output line terminator
+ff='%q'       # Filter's argument format
+
+while getopts 'hugG' opt; do
   case "$opt" in
   \?) exit 1 ;;
   h) echo "$USAGE"; exit 0 ;;
-  u) raw=1 ;;
+  u) ff='%s' ;;
+  g) ot='\n' ;;
+  G) ot='\n'; it='\n' ;;
   esac
 done
 shift $((OPTIND-1))
 
+
+([ -z "$it" ] && cat || tr "$it" '\0') | \
 while IFS= read -d '' -r line; do
-  f=%q; (( raw )) && f=%s
-  if printf $f'\0' "$line" | xargs -0 -i sh -c "$@" >/dev/null; then
-    printf '%s\0' "$line"
+  if printf "${ff}\0" "$line" | xargs -0 -i sh -c "$@" >/dev/null; then
+    printf "%s${ot}" "$line"
   fi
 done
