@@ -5,10 +5,13 @@ read -r -d '' USAGE <<'EOF'
 Filters lines from stdin or a pipe based on a predicate, in the spirit of the
 "reduce" of a map-reduce (except without all the benefits of a real one).
 
-The predicate is an arbitrary command evaluated by sh that can contain
-occurences of the placeholder '{}'. They all will be replaced by the line the
-predicate is applied on. If the predicate fails (i.e. the exit code of the
-command is not 0), then the line will be discarded.
+The predicate is an arbitrary command evaluated by sh. The first positional
+parameter ($1) available to the predicate contains the line on which the
+predicate is applied, which should be properly quoted to avoid parameter
+expansion.
+
+If the predicate succeeds, i.e. if its exit code is 0, the input line is
+written to stdout. Otherwise it is discarded.
 
 Input lines must be null-terminated, and so is the output.
 
@@ -19,9 +22,6 @@ USAGE
 OPTIONS
 
   -h    Shows this help and exits
-
-  -u    Do not quote the line when replacing the placeholder. By default the
-        line is quoted in order to prevent code injection.
 
   The following options are not part of the stable API, do not use them in
   scripts.
@@ -38,67 +38,27 @@ EXAMPLES
 
   List recursively all videos in a directory:
 
-    find . -print0 | filter "file --mime-type -b {} | grep video"
+    find . -print0 | filter "file --mime-type -b "$1" | grep video"
 
   To display the output separated by a newline instead of null, you can use tr:
 
     find . -print0 | filter "true" | tr "\0" "\n"
-
-  Since file name can contain any characters except '/' and null, including
-  quotes and special shell characters, file names must be properly escaped.
-  This is the case by default, and the placeholder should not be surrouned by
-  quotes:
-
-    find . -print0 | filter "grep HACKME {}"
-
-  With this command, if one of the files returned by find is named e.g.:
-
-    $(rm -rf *)
-
-  the filter will treat it as a file name instead of a subshell command.
-
-  To handle escaping yourself, use can use the '-u' option, but if done
-  incorrectly you can still expose yourself to code injection, e.g. files named
-
-    '$(rm -rf *)'
-    "$(rm -rf *)"
-
-  will defeat resp.
-
-    filter -u "grep HACKME '{}'"
-    filter -u 'grep HACKME "{}"'
-
-  The following command is almost equivalent to using the default behavior of
-  quoting the line:
-
-    find . -type f -print0 | \
-    sed s:\':\'\"\'\"\':g | \
-    filter -u "grep HACKME '{}'" | \
-    sed s:\'\"\'\"\':\':g
-
 EOF
 ###############################################################################
 
 # Defaults
 it=           # Input line terminator (in addition to null)
 ot='\0'       # Output line terminator
-ff='%q'       # Filter's argument format
 
-while getopts 'hugG' opt; do
+while getopts 'hgG' opt; do
   case "$opt" in
   \?) exit 1 ;;
   h) echo "$USAGE"; exit 0 ;;
-  u) ff='%s' ;;
   g) ot='\n' ;;
   G) ot='\n'; it='\n' ;;
   esac
 done
 shift $((OPTIND-1))
 
-
 ([ -z "$it" ] && cat || tr "$it" '\0') | \
-while IFS= read -d '' -r line; do
-  if printf "${ff}\0" "$line" | xargs -0 -i sh -c "$@" >/dev/null; then
-    printf "%s${ot}" "$line"
-  fi
-done
+xargs -0 -n 1 sh -c "$@"' >/dev/null && printf '"'%s${ot}'"' "$1"' "$0"
