@@ -67,4 +67,4 @@ shift $((OPTIND-1))
 
 ([ -z "$it" ] && cat || tr "$it" '\0') | \
 xargs -0 -n 1 -P "$nprocs" \
-  sh -c "$@"' >/dev/null && printf '"'%s${ot}'"' "$1"' "$0"
+  sh -c "$*"' >/dev/null && printf '"'%s${ot}'"' "$1"' "$0"
