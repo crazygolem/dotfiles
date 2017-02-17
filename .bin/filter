@@ -21,13 +21,16 @@ USAGE
 
 OPTIONS
 
-  -h    Shows this help and exits
+  -h    Show this help and exit
+
+  -p    Use parallelism to improve speed. The output might not be in the same
+        order as the input.
 
   The following options are not part of the stable API, do not use them in
   scripts.
 
   -g    aka Garbage out. Output lines are newline-terminated. The output should
-        probably not be parsed.
+        probably not be parsed. Use this to quickly test predicates.
 
   -G    aka Garbage in, garbage out. Like -g, and also newlines in the input
         are treated as line terminators (in addition to nulls). If you are too
@@ -49,11 +52,13 @@ EOF
 # Defaults
 it=           # Input line terminator (in addition to null)
 ot='\0'       # Output line terminator
+nprocs=1      # Nr of processes that xargs can use (xargs' default is 1)
 
-while getopts 'hgG' opt; do
+while getopts 'hpgG' opt; do
   case "$opt" in
   \?) exit 1 ;;
   h) echo "$USAGE"; exit 0 ;;
+  p) nprocs=0 ;;
   g) ot='\n' ;;
   G) ot='\n'; it='\n' ;;
   esac
@@ -61,4 +66,5 @@ done
 shift $((OPTIND-1))
 
 ([ -z "$it" ] && cat || tr "$it" '\0') | \
-xargs -0 -n 1 sh -c "$@"' >/dev/null && printf '"'%s${ot}'"' "$1"' "$0"
+xargs -0 -n 1 -P "$nprocs" \
+  sh -c "$@"' >/dev/null && printf '"'%s${ot}'"' "$1"' "$0"
