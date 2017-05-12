@@ -3,7 +3,7 @@
 # Compute the CRC32 checksum of files, with a nice output.
 #
 #
-# Version: 2016-01-22
+# Version: 2017-05-13
 # Author: crazygolem
 # License: WTFPL Version 2 (http://www.wtfpl.net)
 #
@@ -11,7 +11,7 @@
 # ANIME CRC32 CHECKSUM IN LINUX V2.0
 # http://agafix.org/anime-crc32-checksum-in-linux-v20
 
-import sys, re, zlib, os
+import sys, re, zlib, os, errno
 
 pat     = r'(?<=\[)(%s)(?=\])'  # CRC must be enclosed in brackets
 c_res   = '\x1b[00;00m'         # Removes color
@@ -62,5 +62,7 @@ for file in sys.argv[1:]:
             crc = crc32sum(stream)
             allmatching &= match(stream.name, '%.8X' %(crc))
     except IOError as e:
+        if e.errno == errno.EPIPE:  # stdout and/or stderr closed
+            sys.exit()
         print(e, file=sys.stderr)
 sys.exit(int(not allmatching))
