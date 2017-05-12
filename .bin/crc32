@@ -19,18 +19,18 @@ c_err   = '\x1b[31;01m'         # Fail: Red
 c_ok    = '\x1b[32;01m'         # Match: Green
 
 def progress(current, total, file):
+    """Display a rudimentary progress counter. Not very robust."""
     # The file size cannot always be known by the OS, and if it is not, total
-    # will be 0. E.g., running
-    #   `$0 <(cat file.dat)`
-    # will create a file descriptor in /proc/self/fd/ of unknown (= 0) size
-    # from which the output of `cat` will be read. It's basically the same
-    # when reading from stdin.
+    # will be 0. E.g., running `crc32 <(cat file.dat)` will create a file
+    # descriptor in /proc/self/fd/ of unknown (= 0) size from which the output
+    # of `cat` will be read. It is basically the same when reading from stdin.
     if total:
         print('%7d%%\t%s' %((current / total) * 100, file), end='\r')
     elif file:
-        print('%8s\t%s\r' %('...', file), end='\r')
+        print('%8s\t%s' %('...', file), end='\r')
 
 def match(name, crc):
+    """Search for a matching CRC in the filename and add colors."""
     anycrc = r'[a-f0-9]{8}'
     sub = r'%s\1%s' %('%s', c_res)
     cn = re.subn(pat %(crc), sub %(c_ok), name, flags=re.I) + (True,)
@@ -40,6 +40,7 @@ def match(name, crc):
     return cn[2]
 
 def crc32sum(stream):
+    """Compute the checksum while displaying the progress."""
     try:
         crc = 0
         fsize = os.fstat(stream.fileno()).st_size
@@ -63,4 +64,3 @@ for file in sys.argv[1:]:
     except IOError as e:
         print(e, file=sys.stderr)
 sys.exit(int(not allmatching))
-
