@@ -3,7 +3,7 @@
 ### USAGE #####################################################################
 read -r -d '' USAGE <<'EOF'
 Filters lines from stdin or a pipe based on a predicate, in the spirit of the
-"reduce" of a map-reduce (except without all the benefits of a real one).
+"reduce" of a map-reduce (without the actual benefits of a real one).
 
 The predicate is an arbitrary command evaluated by sh. The first positional
 parameter ($1) available to the predicate contains the line on which the
@@ -39,11 +39,17 @@ OPTIONS
 
 EXAMPLES
 
-  List recursively all videos in a directory:
+  List recursively all videos in a directory (note that the second pipe is
+  inside the filter):
 
-    find . -print0 | filter "file --mime-type -b "$1" | grep video"
+    find . -print0 | filter 'file --mime-type -b "$1" | grep video'
 
-  To display the output separated by a newline instead of null, you can use tr:
+  List videos that are truncated (a mediainfo flag):
+
+    find . -name '*.mp4' -print0 | filter 'mediainfo "$1" | grep IsTruncated'
+
+  To display the output separated by a newline instead of null, tr can be used
+  on the filter's output:
 
     find . -print0 | filter "true" | tr "\0" "\n"
 EOF
