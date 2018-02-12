@@ -1,0 +1,92 @@
+#!/bin/bash
+
+###############################################################################
+# Suspend timer that also handles turning off the screen.
+#
+# USAGE
+#   zzz
+#   zzz NUMBER[SUFFIX]...
+#
+# DESCRIPTION
+#   Suspends after NUMBER seconds. SUFFIX may be 's' for seconds (the default),
+#   'm' for minutes, 'h' for hours or 'd' for days. NUMBER may be an integer or
+#   an arbitrary floating point number. Given two or more arguments, the sum of
+#   all the arguments is used.
+#
+#   Without argument, suspends immediately.
+###############################################################################
+
+
+# Parses the time as would the GNU sleep command, and returns the number of
+# seconds that the input corresponds to.
+# Can also be used to validate arguments for GNU sleep.
+parsetime() {
+  # Values must be converted with `bc`, because GNU sleep accepts float values.
+  local s p
+  s=0
+
+  for p in "$@"; do
+    if [[ $p =~ ^[0-9]+(\.[0-9]+)?s?$ ]]; then
+      s=$(echo "$s + ${p%s}" | bc)
+    elif [[ $p =~ ^[0-9]+(\.[0-9]+)?m$ ]]; then
+      s=$(echo "$s + ${p%m} * 60" | bc)
+    elif [[ $p =~ ^[0-9]+(\.[0-9]+)?h$ ]]; then
+      s=$(echo "$s + ${p%h} * 60 * 60" | bc)
+    elif [[ $p =~ ^[0-9]+(\.[0-9]+)?d$ ]]; then
+      s=$(echo "$s + ${p%d} * 60 * 60 * 24" | bc)
+    else
+      >&2 echo "invalid time suffix: $p"
+      return 1
+    fi
+  done
+
+  echo $s
+}
+
+# Displays a countdown for the specified number (int) of seconds.
+countdown() {
+  local s fmt
+  s="$1"
+  fmt='%s\r'
+  if ((s>=86400)); then
+    fmt='%id %s\r'
+  fi
+
+  SECONDS=0
+  while [ $SECONDS -lt "$s" ]; do
+    printf "$fmt" $(((s-SECONDS)/86400)) "$(date -ud @$((s-SECONDS)) +%T)"
+    sleep 0.2
+  done
+  echo "That's all Folks!"
+}
+
+# Executes an action on key presses. The first argument is printed and the rest
+# is executed.
+oninput() {
+  if [ -n "$1" ]; then
+    echo "$1"
+  fi
+  shift
+
+  # stderr redirected to /dev/null to avoid I/O error messages on suspend
+  while IFS= read -srn1 char 2>/dev/null; do
+    "$@"
+  done
+}
+
+if [ $# -gt 0 ]; then
+  seconds="$(parsetime "$@")" || exit 1
+  countdown "${seconds%.*}" &
+  oninput "Press any key to turn off the screen or ^C to cancel" \
+    xset dpms force off &
+  sleep "$@"
+fi
+
+# Dropping the curtain manually should not technically be necessary, but if we
+# directly suspend, the user's screen might still be briefly shown when waking
+# up for some reason.
+#loginctl lock-session &&
+#  xset dpms force on
+#{ sleep 2; systemctl suspend -i; }&
+
+systemctl suspend -i

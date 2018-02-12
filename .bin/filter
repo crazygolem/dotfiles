@@ -1,0 +1,76 @@
+#!/usr/bin/bash
+
+### USAGE #####################################################################
+read -r -d '' USAGE <<'EOF'
+Filters lines from stdin or a pipe based on a predicate, in the spirit of the
+"reduce" of a map-reduce (without the actual benefits of a real one).
+
+The predicate is an arbitrary command evaluated by sh. The first positional
+parameter ($1) available to the predicate contains the line on which the
+predicate is applied, which should be properly quoted to avoid parameter
+expansion.
+
+If the predicate succeeds, i.e. if its exit code is 0, the input line is
+written to stdout. Otherwise it is discarded.
+
+Input lines must be null-terminated, and so is the output.
+
+USAGE
+
+  filter [OPTION...] PREDICATE
+
+OPTIONS
+
+  -h    Show this help and exit
+
+  -p    Use parallelism to improve speed. The output might not be in the same
+        order as the input.
+
+  The following options are not part of the stable API, do not use them in
+  scripts.
+
+  -g    aka Garbage out. Output lines are newline-terminated. The output should
+        probably not be parsed. Use this to quickly test predicates.
+
+  -G    aka Garbage in, garbage out. Like -g, and also newlines in the input
+        are treated as line terminators (in addition to nulls). If you are too
+        lazy to convert newlines to nulls (and back) yourself, we'll do it for
+        you.
+
+EXAMPLES
+
+  List recursively all videos in a directory (note that the second pipe is
+  inside the filter):
+
+    find . -print0 | filter 'file --mime-type -b "$1" | grep video'
+
+  List videos that are truncated (a mediainfo flag):
+
+    find . -name '*.mp4' -print0 | filter 'mediainfo "$1" | grep IsTruncated'
+
+  To display the output separated by a newline instead of null, tr can be used
+  on the filter's output:
+
+    find . -print0 | filter "true" | tr "\0" "\n"
+EOF
+###############################################################################
+
+# Defaults
+it=           # Input line terminator (in addition to null)
+ot='\0'       # Output line terminator
+nprocs=1      # Nr of processes that xargs can use (xargs' default is 1)
+
+while getopts 'hpgG' opt; do
+  case "$opt" in
+  \?) exit 1 ;;
+  h) echo "$USAGE"; exit 0 ;;
+  p) nprocs=0 ;;
+  g) ot='\n' ;;
+  G) ot='\n'; it='\n' ;;
+  esac
+done
+shift $((OPTIND-1))
+
+([ -z "$it" ] && cat || tr "$it" '\0') | \
+xargs -0 -n 1 -P "$nprocs" \
+  sh -c "$*"' >/dev/null && printf '"'%s${ot}'"' "$1"' "$0"
