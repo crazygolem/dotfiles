@@ -1,0 +1,272 @@
+# Common RC config for bash and zsh
+################################################################################
+
+export PATH=~/.bin:$PATH
+export EDITOR="vim"
+
+
+alias here='(nautilus . 1>/dev/null 2>&1 &)'
+alias cls='printf \\ec' # Clear screen like real men do. (http://stackoverflow.com/a/5367075)
+alias rst='cd ~; reset'
+alias tn='konami ping -c1 google.com'
+alias open='xdg-open'
+alias top='if type -p htop >/dev/null; then htop; else top; fi'
+alias :q='exit'
+alias myip='curl ipinfo.io/ip'
+alias vimr='vim -R'
+alias n='vimr -'
+alias m='less'
+alias mpa='mpv --no-video --mute=no --msg-level=ffmpeg=no'
+
+alias diff='colordiff' # requires colordiff package
+alias grep='grep --color=auto'
+alias df='df -h'
+alias du='du -c -h'
+alias du1='du --max-depth=1'
+alias mkdir='mkdir -p -v'
+alias ping='ping -c 5'
+alias tree='tree -CF'
+alias openports='netstat --all --numeric --programs --inet --inet6'
+
+# ls
+eval $(dircolors)                   # Color setup for ls
+alias ls='ls -hF --color=auto'
+alias lsa='ls -A'
+alias lr='ls -R'                    # recursive ls
+alias ll='ls -l'
+alias la='ll -A'
+alias lla='ll -A'
+alias lx='ll -BX'                   # sort by extension
+alias lz='ll -rS'                   # sort by size
+alias lt='ll -rt'                   # sort by date
+alias lm='la | more'
+alias lsg='ls | grep -i'
+alias llg='ll | grep -i'
+
+# safety features
+alias cp='cp -i'
+alias mv='mv -i'
+alias rm='rm -I'                    # 'rm -i' prompts for every file
+alias ln='ln -i'
+alias chown='chown --preserve-root'
+alias chmod='chmod --preserve-root'
+alias chgrp='chgrp --preserve-root'
+
+# pacman aliases (if applicable, replace 'pacman' with your favorite AUR helper)
+alias pac="pacman -S"      # default action     - install one or more packages
+alias pacu="pacman -Syu"   # '[u]pdate'         - upgrade all packages to their newest version
+alias pacs="pacman -Ss"    # '[s]earch'         - search for a package using one or more keywords
+alias paci="pacman -Si"    # '[i]nfo'           - show information about a package
+alias pacr="pacman -R"     # '[r]emove'         - uninstall one or more packages
+alias pacl="pacman -Sl"    # '[l]ist'           - list all packages of a repository
+alias pacll="pacman -Qqm"  # '[l]ist [l]ocal'   - list all packages which were locally installed (e.g. AUR packages)
+alias paclo="pacman -Qdt"  # '[l]ist [o]rphans' - list all packages which are orphaned
+alias paco="pacman -Qo"    # '[o]wner'          - determine which package owns a given file
+alias pacf="pacman -Ql"    # '[f]iles'          - list all files installed by a given package
+alias pacc="pacman -Sc"    # '[c]lean cache'    - delete all not currently installed package files
+alias pacm="makepkg -fci"  # '[m]ake'           - make package from PKGBUILD file in current directory
+
+alias update='pkgblklst; yaourt -Syu'
+alias update-aur='update -a'
+
+
+bak() {
+  mv "$1" "$1".bak
+}
+
+unbak() {
+  mv "$1" "${1%.bak}"
+}
+
+# Read rendered markdown files in the shell
+markup() {
+  markdown "$1" | w3m -T text/html
+}
+
+# Display colorized information output
+cinfo() {
+  printf '\033[01;33m%s\033[00;00m\n' "$@"
+}
+
+# Display colorized warning output
+cwarn() {
+  printf '\033[01;31m%s\033[00;00m\n' "$@"
+}
+
+# Outputs a message about the number of packages ignored by Pacman
+pkgblklst() {
+  cf='/etc/pacman.conf'
+  ip="$(cat $cf | grep -E '^[^#]*IgnorePkg\s*=' | sed 's/IgnorePkg\s*=\s*//' | sed 's/#.*//')"
+
+  if [ $ip ]; then
+    nr="$(echo $ip | wc -w)"
+    cwarn ":: $nr ignored packages in $cf"
+    echo " $ip"
+  fi
+}
+
+# Extracts a wide range of compressed files by extension
+# source: https://wiki.archlinux.org/index.php/Bash#Functions
+# Alternatives: unp, atool, dtrx
+extract() {
+    local file cmd errs
+
+    # If called without arguments, prints help and exits.
+    (($#)) || {
+      >&2 echo 'Extracts a wide range of compressed files.'
+      >&2 echo 'Alternatives: atool, unp, dtrx.'
+      >&2 echo
+      >&2 echo 'Usage:'
+      >&2 echo "  $0 FILE..."
+      return 1
+    }
+
+    for file; do
+        if [[ ! -r "$file" ]]; then
+            echo "$0: file is unreadable: \`$file'" >&2
+            errs+=1
+            continue
+        fi
+
+        case "$file" in
+        *.tgz|*.tlz|*.txz|*.tb2|*.tbz|*.tbz2|*.taz|\
+        *.tar|*.tar.Z|*.tar.bz|*.tar.bz2|*.tar.gz|*.tar.lzma|*.tar.xz)
+                cmd='bsdtar xvf';;
+        *.7z)   cmd='7z x';;
+        *.Z)    cmd='uncompress';;
+        *.bz2)  cmd='bunzip2';;
+        *.exe)  cmd='cabextract';;
+        *.gz)   cmd='gunzip';;
+        *.rar)  cmd='unrar x';;
+        *.xz)   cmd='unxz';;
+        *.zip)  cmd='unzip';;
+        *)      >&2 echo "$0: unrecognized file extension: \`$file'"
+                errs+=1
+                continue;;
+        esac
+
+        command $cmd "$file"
+        errs+=$?
+    done
+
+    ! ((errs))
+}
+
+# Colorized manpages
+man() {
+    # The LESS_TERMCAP_* variables are used by `less` for colorization.
+    # If `less` is not the default pager, then they won't matter.
+    # `tput` outputs control chars used for formatting.
+
+    env \
+    LESS_TERMCAP_mb=$(tput bold; tput setaf 1) \
+    LESS_TERMCAP_md=$(tput bold; tput setaf 74) \
+    LESS_TERMCAP_me=$(tput sgr0) \
+    LESS_TERMCAP_so=$(tput smso; tput setaf 241; tput setab 177) \
+    LESS_TERMCAP_se=$(tput rmso; tput sgr0) \
+    LESS_TERMCAP_us=$(tput smul; tput setaf 146) \
+    LESS_TERMCAP_ue=$(tput rmul; tput sgr0) \
+    LESS_TERMCAP_mr=$(tput rev) \
+    LESS_TERMCAP_mg=$(tput dim) \
+    LESS_TERMCAP_ZN=$(tput ssubm) \
+    LESS_TERMCAP_ZV=$(tput rsubm) \
+    LESS_TERMCAP_ZO=$(tput ssupm) \
+    LESS_TERMCAP_ZW=$(tput rsupm) \
+    man "$@"
+}
+
+
+### §aliases ###################################################################
+
+alias §§='cls'
+alias §u='update-aur'
+alias §is='yaourt --pager --color'
+alias §i='yaourt -S'
+alias §ir='yaourt -Rs'
+alias §d='sudo systemctl'
+alias §rg='nohup gnome-shell -d :0 -r &'
+alias §-='r | less'
+
+# Like `pwd` but also resolves symlinks
+§() {
+  local p pP
+  p="$(pwd)"
+  pP="$(pwd -P)"
+
+  echo "$p"
+  [ "$p" != "$pP" ] && printf ' ↳ %s\n' "$pP"
+}
+
+# Stuff I never remember when I need it
+§sysinfo() {
+cat <<'EOF'
+Use the following command to gather information about the system:
+
+  lscpu
+    List available cpus and their caracteristics
+    Not available on older distribution
+
+  lshw
+    Available on Debian and Ubuntu based distributions by default
+    Available in the Fedora repositories
+    Uses many inputs to detect all hardware: Kernel, HAL, DMI, etc.
+    As a neat ‘-html’ switch that generates hardware reports
+
+  lspci
+    Standard command
+    List all hardware connected to the PCI bus as detected by the kernel
+
+  lsusb
+    Standard command
+    List all hardware connected to the USB buses as detected by the kernel
+
+  dmidecode
+    Standard command
+    Get the source information from the DMI (a kind of BIOS interface)
+    List all hardware as reported by the DMI interface
+
+  uname -a
+    Show kernel version and system architecture
+
+  andhead -n1 /etc/issue
+    Show name and version of distribution
+
+  cat /proc/partitions
+    Show all partitions registered on the system
+
+  grep MemTotal /proc/meminfo
+    Show RAM total seen by the system
+
+  grep "model name" /proc/cpuinfo
+    Show CPU(s) info
+
+  lspci -tv
+    Show PCI info
+
+  lsusb -tv
+    Show USB info
+
+  mount | column -t
+    List mounted filesystems on theire system (and align output)
+
+  dmidecode -q | less
+    Display SMBIOS/DMI information
+
+  smartctl -A /dev/sda | grep Power_On_Hours
+    How long has this disk (system) been powered on in total
+
+  hdparm -i    /dev/sda
+    Show info about disk sda
+
+  hdparm -tT /dev/sda
+    Do a read speed test on disk sda
+
+  badblocks -s /dev/sda
+    Test for unreadable blocks on disk sda
+
+
+  Other neat tools and commands at:
+    http://superuser.com/questions/303981/what-is-the-linux-command-to-find-out-hardware-info
+    http://www.pixelbeat.org/cmdline.html
+EOF
+}
