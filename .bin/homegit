@@ -22,16 +22,16 @@ REPO="${XDG_DATA_HOME:-$HOME/.local/share}"/homegit
 if [ "$1" = init ]; then
   git init --bare "$REPO"
   echo "$REPO" >>"$REPO"/info/exclude
-  $0 config --local status.showUntrackedFiles no
+  git --git-dir="$REPO" --work-tree=$HOME config --local status.showUntrackedFiles no
 elif [ "$1" = clone ]; then
   git clone --bare "$2" "$REPO"
   echo "$REPO" >>"$REPO"/info/exclude
-  $0 config --local status.showUntrackedFiles no
+  git --git-dir="$REPO" --work-tree=$HOME config --local status.showUntrackedFiles no
 
   # Checkout the actual content into the $HOME
   # Can fail if existing files would be overwritten (e.g. bashrc, zshrc). If it
   # happens, just remove/rename the files and run `githome checkout` again.
-  $0 checkout
+  git --git-dir="$REPO" --work-tree=$HOME checkout
 else
   exec git --git-dir="$REPO" --work-tree=$HOME "$@"
 fi
