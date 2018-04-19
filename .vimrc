@@ -85,6 +85,9 @@ function! Vundleize()
   " Table formatting
   Bundle 'dhruvasagar/vim-table-mode'
   let g:table_mode_corner='|' " Markdown-compatible tables
+
+  " Text alignment
+  Bundle 'godlygeek/tabular'
 endfunction
 
 silent! call Vundleize()
