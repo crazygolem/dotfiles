@@ -34,23 +34,12 @@ function! Vundleize()
   " Let Vundle manage Vundle (required)
   Bundle 'gmarik/vundle'
 
-  " Libraries required by some bundles
-  Bundle 'MarcWeber/vim-addon-mw-utils'
-  Bundle 'tomtom/tlib_vim'
-
   " Color themes (makes them available, does not select one)
   Bundle 'vim-scripts/wombat256.vim'
   Bundle 'altercation/vim-colors-solarized'
 
   " Create directories in path if they don't exist yet
   Bundle 'auto_mkdir'
-
-  " Python completion
-  Bundle 'davidhalter/jedi-vim'
-
-  " Stub code snippets
-  Bundle 'garbas/vim-snipmate'
-  Bundle 'honza/vim-snippets'
 
   " Omni completion on ctrl-space (default <tab> is too intrusive/frustrating)
   " <c-space> cannot be mapped in vim console; <nul> is equivalent
