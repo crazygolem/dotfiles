@@ -81,6 +81,10 @@ function! Vundleize()
 
   " Show syntax attribute of the character under cursor
   Bundle 'SyntaxAttr.vim'
+
+  " Table formatting
+  Bundle 'dhruvasagar/vim-table-mode'
+  let g:table_mode_corner='|' " Markdown-compatible tables
 endfunction
 
 silent! call Vundleize()
