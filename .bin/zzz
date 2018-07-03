@@ -63,6 +63,8 @@ countdown() {
 # Executes an action on key presses. The first argument is printed and the rest
 # is executed.
 oninput() {
+  local char
+
   if [ -n "$1" ]; then
     echo "$1"
   fi
