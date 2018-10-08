@@ -1,0 +1,8 @@
+[Desktop Entry]
+Version=1.1
+Name=Scripts Launcher
+Description=Executes shell sripts
+NoDisplay=true
+Type=Application
+Exec=sh -c 'exec %f'
+Terminal=false
