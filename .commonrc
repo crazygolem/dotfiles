@@ -4,6 +4,11 @@
 export PATH=~/.bin:$PATH
 export EDITOR="vim"
 
+if [ -x "$(command -v nvim)" ]; then
+  export EDITOR="nvim"
+  alias vim='nvim'
+  alias vimdiff='nvim -d'
+fi
 
 alias here='(nautilus . 1>/dev/null 2>&1 &)'
 alias cls='printf \\ec' # Clear screen like real men do. (http://stackoverflow.com/a/5367075)
