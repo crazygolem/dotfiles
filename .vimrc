@@ -139,6 +139,14 @@ set number
 set numberwidth=5
 
 
+""" Cursor """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+" For some reason, unlike vim neovim does not have cursor blinking by default.
+" The following configuration has been takend from nvim's `:help 'guicursor'`.
+set guicursor+=a:blinkwait700-blinkoff400-blinkon250-Cursor/lCursor
+              \,sm:block-blinkwait175-blinkoff150-blinkon175
+
+
 """ Mouse """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 set mouse=a                   " Use mouse to click
