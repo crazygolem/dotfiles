@@ -217,6 +217,15 @@ set virtualedit=onemore
 " cursor has to move left at the end of the line)
 imap <C-c> <C-c>l
 
+" Fix navigation (ctrl+arrow) in TMUX with 'screen' terminal and 'xterm-keys'
+" option enabled.
+if &term =~ '^screen'
+    execute "set <xUp>=\e[1;*A"
+    execute "set <xDown>=\e[1;*B"
+    execute "set <xRight>=\e[1;*C"
+    execute "set <xLeft>=\e[1;*D"
+endif
+
 
 """ Statusline """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
