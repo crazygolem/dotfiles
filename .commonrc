@@ -73,9 +73,6 @@ alias pacf="pacman -Ql"    # '[f]iles'          - list all files installed by a 
 alias pacc="pacman -Sc"    # '[c]lean cache'    - delete all not currently installed package files
 alias pacm="makepkg -fci"  # '[m]ake'           - make package from PKGBUILD file in current directory
 
-alias update='pkgblklst; yaourt -Syu'
-alias update-aur='update -a'
-
 
 bak() {
   mv -T "$1" "$1".bak
@@ -186,10 +183,10 @@ man() {
 ### §aliases ###################################################################
 
 alias §§='cls'
-alias §u='update-aur'
-alias §is='yaourt --pager --color'
-alias §i='yaourt -S'
-alias §ir='yaourt -Rs'
+alias §u='pkgblklst; pikaur -Syu'
+alias §is='pikaur -Ss'
+alias §i='pikaur -S'
+alias §ir='pikaur -Rs'
 alias §d='sudo systemctl'
 alias §rg='nohup gnome-shell -d :0 -r &'
 alias §-='r | less'
