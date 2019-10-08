@@ -24,6 +24,9 @@ OPTIONS
 
   -e COUNT
         Prints a cheat code every COUNT command executions.
+
+  -c LIMIT
+        Limits the number of command execution to the specified LIMIT.
 EOF
 ################################################################################
 
@@ -49,23 +52,29 @@ not_konami() {
 
 DELAY=1s  # Delay between command executions
 EVERY=5   # Number of command executions before printing a cheat code
+LIMIT=    # Limit the number of attempts to run the command
 
-while getopts 'hd:e:' opt; do
+while getopts 'hd:e:c:' opt; do
   case "$opt" in
     h) echo "$USAGE" ; exit 0 ;;
     d) DELAY="$OPTARG" ;;
     e) EVERY="$OPTARG" ;;
+    c) LIMIT="$OPTARG" ;;
     \?) exit 1 ;;
   esac
 done
 shift $((OPTIND-1))
 
-while ! ((stop)); do
+while true; do
   if out="$(eval "$@")"; then
     echo "$KONAMI"
     [ -n "$out" ] && echo "$out"
-    stop=1
+    exit 0
   else
+    if (( LIMIT )) && (( iter >= LIMIT )); then
+      exit 1
+    fi
+
     sleep "$DELAY"
     if ! (( (iter + 1) % EVERY )); then
       not_konami
