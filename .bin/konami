@@ -1,42 +1,35 @@
 #!/bin/bash
 
-# Executes a command repeatedly and sometimes prints a random cheat code until
-# the command returns 0, in which case it prints the KONAMI code followed by the
-# result of the command.
-
 ### USAGE ######################################################################
 read -r -d '' USAGE <<'EOF'
-Executes a command repeatedly and sometimes prints a random cheat code until the
-command returns 0, in which case the KONAMI CODE is printed followed by the
-command's output.
+Execute a command repeatedly until it succeeds. A cheat code is printed from
+time to time before executing the command again to bring good luck.
 
-USAGE
-
-  konami [OPTION...] COMMAND ARG...
+SYNOPSIS
+    konami [OPTION...] COMMAND ARG...
 
 OPTIONS
+    -h  Show this help and exit.
 
-  -h    Show this help and exit.
+    -b COUNT
+        Prints a cheat code every COUNT command executions.
 
-  -n INTERVAL
+    -c LIMIT
+        Limits the number of command execution to the specified LIMIT. By
+        default `konami` will run until interrupted.
+
+    -n INTERVAL
         Execute the command at specified INTERVAL. Time units suffixes as
         specified by `sleep` can be used.
 
-  -e COUNT
-        Prints a cheat code every COUNT command executions.
-
-  -c LIMIT
-        Limits the number of command execution to the specified LIMIT.
-
 NOTES
+    The command and arguments are passed to `exec` so you don't need to use
+    extra quoting to get the desired effect. On the other hand, this means that
+    you cannot use shell features such as pipes or redirections directly in
+    your command. If you want to do that, you have to write them as a command
+    to `sh -c`, e.g.:
 
-The command and arguments are passed to `exec` so you don't need to use extra
-quoting to get the desired effect. On the other hand, this means that you cannot
-use shell features such as pipes or redirections directly in your command. If
-you want to do that, you have to write them as a command to `sh -c`, e.g.:
-
-  konami sh -c "echo test >&2; false"
-
+        konami sh -c "echo test >&2; false"
 EOF
 ################################################################################
 
@@ -60,17 +53,17 @@ not_konami() {
 }
 
 
-INTERVAL=1s   # Delay between command executions
-EVERY=5       # Number of command executions before printing a cheat code
+BATCH=5       # Number of command executions before printing a cheat code
+INTERVAL=1s   # Interval between command executions
 LIMIT=        # Limit the number of attempts to run the command
 
-while getopts 'hn:e:c:' opt; do
+while getopts 'hb:c:n:' opt; do
   case "$opt" in
     h) echo "$USAGE" ; exit 0 ;;
-    n) INTERVAL="$OPTARG" ;;
-    e) EVERY="$OPTARG" ;;
-    c) LIMIT="$OPTARG" ;;
     \?) exit 1 ;;
+    b) BATCH="$OPTARG" ;;
+    c) LIMIT="$OPTARG" ;;
+    n) INTERVAL="$OPTARG" ;;
   esac
 done
 shift $((OPTIND-1))
@@ -81,14 +74,14 @@ while true; do
     [ -n "$out" ] && echo "$out"
     exit 0
   else
+    ((iter++))
     if (( LIMIT )) && (( iter >= LIMIT )); then
       exit 1
     fi
 
     sleep "$INTERVAL"
-    if ! (( (iter + 1) % EVERY )); then
+    if ! (( iter % BATCH )); then
       not_konami
     fi
-    ((iter++))
   fi
 done
