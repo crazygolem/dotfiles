@@ -5,14 +5,14 @@
 # result of the command.
 
 ### USAGE ######################################################################
-read -r -d '' USAGE <<EOF
+read -r -d '' USAGE <<'EOF'
 Executes a command repeatedly and sometimes prints a random cheat code until the
 command returns 0, in which case the KONAMI CODE is printed followed by the
 command's output.
 
 USAGE
 
-  $(basename "$0") [OPTION...] COMMAND ARG...
+  konami [OPTION...] COMMAND ARG...
 
 OPTIONS
 
@@ -27,6 +27,16 @@ OPTIONS
 
   -c LIMIT
         Limits the number of command execution to the specified LIMIT.
+
+NOTES
+
+The command and arguments are passed to `exec` so you don't need to use extra
+quoting to get the desired effect. On the other hand, this means that you cannot
+use shell features such as pipes or redirections directly in your command. If
+you want to do that, you have to write them as a command to `sh -c`, e.g.:
+
+  konami sh -c "echo test >&2; false"
+
 EOF
 ################################################################################
 
@@ -66,7 +76,7 @@ done
 shift $((OPTIND-1))
 
 while true; do
-  if out="$(eval "$@")"; then
+  if out="$(exec "$@")"; then
     echo "$KONAMI"
     [ -n "$out" ] && echo "$out"
     exit 0
