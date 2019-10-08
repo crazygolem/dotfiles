@@ -18,9 +18,9 @@ OPTIONS
 
   -h    Show this help and exit.
 
-  -d DELAY
-        Execute the command with the specified DELAY. Time units suffixes as
-        specified by \`sleep\` can be used.
+  -n INTERVAL
+        Execute the command at specified INTERVAL. Time units suffixes as
+        specified by `sleep` can be used.
 
   -e COUNT
         Prints a cheat code every COUNT command executions.
@@ -50,14 +50,14 @@ not_konami() {
 }
 
 
-DELAY=1s  # Delay between command executions
-EVERY=5   # Number of command executions before printing a cheat code
-LIMIT=    # Limit the number of attempts to run the command
+INTERVAL=1s   # Delay between command executions
+EVERY=5       # Number of command executions before printing a cheat code
+LIMIT=        # Limit the number of attempts to run the command
 
-while getopts 'hd:e:c:' opt; do
+while getopts 'hn:e:c:' opt; do
   case "$opt" in
     h) echo "$USAGE" ; exit 0 ;;
-    d) DELAY="$OPTARG" ;;
+    n) INTERVAL="$OPTARG" ;;
     e) EVERY="$OPTARG" ;;
     c) LIMIT="$OPTARG" ;;
     \?) exit 1 ;;
@@ -75,7 +75,7 @@ while true; do
       exit 1
     fi
 
-    sleep "$DELAY"
+    sleep "$INTERVAL"
     if ! (( (iter + 1) % EVERY )); then
       not_konami
     fi
