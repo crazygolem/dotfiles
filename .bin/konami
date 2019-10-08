@@ -1,27 +1,45 @@
 #!/bin/bash
 
 # Executes a command repeatedly and sometimes prints a random cheat code until
-# the command returns 0, in which case it prints the konami code followed by the
+# the command returns 0, in which case it prints the KONAMI code followed by the
 # result of the command.
 
-step=5  # Number of command executions before printing a cheat code
+### USAGE ######################################################################
+read -r -d '' USAGE <<EOF
+Executes a command repeatedly and sometimes prints a random cheat code until the
+command returns 0, in which case the KONAMI CODE is printed followed by the
+command's output.
 
-btns='↑↓←→AB'
-konami='↑ ↑ ↓ ↓ ← → ← → B A'
+USAGE
+
+  $(basename "$0") [OPTION...] COMMAND ARG...
+
+OPTIONS
+
+  -h    Show this help and exit.
+
+  -d DELAY
+        Execute the command with the specified DELAY. Time units suffixes as
+        specified by \`sleep\` can be used.
+
+  -e COUNT
+        Prints a cheat code every COUNT command executions.
+EOF
+################################################################################
+
+BTNS=(↑ ↓ ← → A B)
+KONAMI='↑ ↑ ↓ ↓ ← → ← → B A'
+
 
 # Output a single random button
 rb() {
-  rnd=$((RANDOM % ${#btns} + 1))
-  u32c=4  # number of bytes in a UTF-32 char
-  echo $btns | iconv -t UTF-32 | \
-    head -c $((rnd * u32c + u32c)) | tail -c $u32c | \
-    iconv -f UTF-32
+  echo ${BTNS[RANDOM % ${#BTNS[@]}]}
 }
 
-# Try to output the konami code, but never succeed
-konami_try() {
-  try="$konami"
-  until [ "$try" != "$konami" ]; do
+# Try to output the KONAMI code, but never succeed
+not_konami() {
+  local try="$KONAMI"
+  until [ "$try" != "$KONAMI" ]; do
     try="$(rb) $(rb) $(rb) $(rb) $(rb) $(rb) $(rb) $(rb) $(rb) $(rb)"
   done
 
@@ -29,15 +47,28 @@ konami_try() {
 }
 
 
+DELAY=1s  # Delay between command executions
+EVERY=5   # Number of command executions before printing a cheat code
+
+while getopts 'hd:e:' opt; do
+  case "$opt" in
+    h) echo "$USAGE" ; exit 0 ;;
+    d) DELAY="$OPTARG" ;;
+    e) EVERY="$OPTARG" ;;
+    \?) exit 1 ;;
+  esac
+done
+shift $((OPTIND-1))
+
 while ! ((stop)); do
-  if out="$("$@")"; then
-    echo "$konami"
-    echo "$out"
+  if out="$(eval "$@")"; then
+    echo "$KONAMI"
+    [ -n "$out" ] && echo "$out"
     stop=1
   else
-    sleep 1s
-    if ! (( (iter + 1) % step )); then
-      konami_try
+    sleep "$DELAY"
+    if ! (( (iter + 1) % EVERY )); then
+      not_konami
     fi
     ((iter++))
   fi
