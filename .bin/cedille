@@ -1,0 +1,36 @@
+#!/usr/bin/bash
+
+# Ersatz for `sed -i` that doesn't exist on Solaris
+#
+# USAGE
+#
+#   cedille SCRIPT FILE...
+#   cedille [-e SCRIPT]... [-f SCRIPTFILE] FILE...
+
+trap 'rm "$tmp"' INT TERM EXIT
+tmp="$(mktemp)"
+
+declare -a args
+
+while getopts 'e:f:' opt; do
+  case "$opt" in
+  e) args+=('-e' "$OPTARG") ;;
+  f) args+=('-f' "$OPTARG") ;;
+  \?) exit 1 ;;
+  esac
+done
+shift $(( OPTIND - 1 ))
+
+if [ ${#args[@]} -eq 0 ]; then
+  args=('-e' "$1"); shift
+fi
+
+
+for src in "$@"; do
+  # Use cat to keep the ownership and permissions unchanged
+  sed "${args[@]}" "$src" >"$tmp" && cat "$tmp" >"$src"
+  errs=$(( errs + $? ))
+done
+
+# Set exit code in case of errors
+! (( errs ))

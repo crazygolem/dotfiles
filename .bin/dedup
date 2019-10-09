@@ -1,0 +1,7 @@
+#!/bin/sh
+#
+# Remove duplicated lines without reordering them
+#
+
+# https://stackoverflow.com/a/11532197
+awk '!x[$0]++'

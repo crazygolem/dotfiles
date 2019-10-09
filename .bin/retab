@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Convert code that is correctly aligned, but with a mix of spaces and tabs.
+# The result is: Indentation with tabs, internal alignment with spaces.
+# Usage: retab FILE
+
+OPTIND=1
+while getopts "t:" opt; do
+  case "$opt" in
+  t) tabstop="$OPTARG" ;;
+  esac
+done
+shift $(( OPTIND - 1 ))
+
+tabstop=${tabstop:-4}
+input="$1"
+output="$1" # TODO: Allow output to stdout
+
+cat "$input" | \
+  expand -t "$tabstop" - | unexpand -t "$tabstop" --first-only - | \
+  sponge "$output"

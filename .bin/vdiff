@@ -1,0 +1,47 @@
+#!/bin/bash
+#
+# Video diff
+#
+# https://stackoverflow.com/questions/25774996/how-to-compare-show-the-difference-between-2-videos-in-ffmpeg
+# http://dericed.com/2012/display-video-difference-with-ffmpegs-overlay-filter/
+
+OPTIND=1
+while getopts 'b:f:t:d:' opt; do
+	case "$opt" in
+	b) skip="$OPTARG" ;; # first diff byte
+	f) cut+=(-ss "$OPTARG") ;; # start
+	t) cut+=(-to "$OPTARG") ;; # end
+	d) cut+=(-t "$OPTARG") ;;  # duration
+	esac
+done
+shift $((OPTIND-1))
+
+diffmethod="${diffmethod:-rt}"
+
+# Get byte position of first difference
+echo "Searching first difference..."
+firstdiff="$(LC_ALL=C cmp -i "${skip:-0}" "$1" "$2" | grep -oP '(?<=differ: char )(\d+)(?=,)')"
+firstdiff="$((firstdiff+skip))"
+echo "  byte $firstdiff"
+
+# Get approx. timestamp of byte position
+echo "Figuring out approx timestamp..."
+i=10
+while true; do
+	b="$(2>/dev/null ffprobe -i "$1" -hide_banner -show_frames -read_intervals "$((pt+i))%+#1" | grep -oP '(?<=pkt_pos=)[0-9:.]+')"
+	pt=$((pt+i))
+	if [ "$b" -gt "$firstdiff" ]; then
+		echo "  between $pt and $((pt+i))"
+		echo "Getting frame timestamp (-10s)..."
+		pt="$(2>/dev/null ffprobe -i "$1" -hide_banner -show_entries frame=pkt_pts_time -read_intervals "$((pt-10))%+#1" | grep -oP '(?<=pkt_pts_time=)[0-9:.]+')"
+		cut+=(-ss "$pt")
+		cut+=(-t 30)
+		echo "  setting ${cut[@]}"
+		break
+	fi
+done
+
+# Merge videos
+out="$(mktemp --suffix=.mkv)"
+echo "Output: ${out}"
+ffmpeg -y -loglevel fatal "${cut[@]}" -i "${1}" "${cut[@]}" -i "${2}" -filter_complex "blend=all_mode=difference" -c:v libx264 -crf 18 -c:a copy "${out}"

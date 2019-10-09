@@ -1,0 +1,38 @@
+#!/bin/bash
+#
+# Get a shell into a docker container specified by (part of) its name
+#
+
+names() {
+  docker container inspect --format='{{.Name}}' "$@"
+}
+
+[ "$(getopt -T >/dev/null 2>&1; echo $?)" = 4 ] || >&2 echo 'WARNING: Missing recent GNU getopt';
+OPTS=$(getopt -o e: --name "$0" -- "$@") || exit 1
+eval set -- "$OPTS"
+while :; do
+  case "$1" in
+    -e) exact=1; shift ;;
+    --) shift; break ;;
+    *)  >&2 echo "Internal error, unhandled option: $1"; exit 1 ;;
+  esac
+done
+
+if (( exact )); then
+  instance=("$1")
+else
+  filter="$1"
+  instance=($(docker container ls -q -f "name=$filter"))
+fi
+
+if [ ${#instance[@]} -eq 0 ]; then
+  >&2 echo "No matching container"
+  exit 1
+elif [ ${#instance[@]} -gt 1 ]; then
+  >&2 echo "Multiple matching containers:"
+  >&2 names "${instance[@]}"
+  exit 2
+fi
+
+echo "Connecting to ${instance[@]} $(names "${instance[@]}")"
+docker container exec -it "${instance[@]}" bash

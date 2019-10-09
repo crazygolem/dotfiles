@@ -1,0 +1,93 @@
+#!/bin/sh
+#
+# Turn bash scripts into interactive clients
+#
+# Use clientify in the shebang to turn your script into an initialization script
+# for an interactive bash shell. E.g.:
+#
+#     #!/usr/bin/env clientify
+#
+#     myfunc() { echo Hello World; }
+#
+# will open a new bash shell in your normal environment (i.e. with the usual
+# initialization sequence), and "initialize" it further as if your script was
+# typed in manually, i.e. when you get back the console you can execute `myfunc`
+# yourself.
+#
+# Do not use the file descriptors 8 and 9 in your initialization script, as they
+# are used by clientify to make it work.
+#
+# IMPORTANT NOTES
+#
+# Clientify is not intended to be an all-purpose clientification mechanism, but
+# rather a way to quickly hack interactive clients in a familiar shell for your
+# own use. Executing in that manner a script provided by untrusted sources CAN
+# BE VERY DANGEROUS, and is not recommended. On top of that, everytime you share
+# a clientified script with someone with the expectation that they will use it,
+# a kitten will die.
+#
+# Clientify is not completely portable, as some kernels do not allow the nesting
+# of shebangs which is relied upon by clientify (i.e. some loaders do not allow
+# the executable on a shebang to be a script itself). It should work on Linux.
+#
+
+
+# Path of the initialization script, passed as first argument to the executable
+# specified in the shebang.
+SCRIPT="$1"; shift
+
+# Create a named pipe, open it and unlink it so it doesn't appear in the FS
+WD=$(mktemp -d --suffix ."$(basename "$0")")
+mkfifo $WD/input
+exec 8<> $WD/input
+rm -rf $WD
+unset WD
+
+# Copy the init script to the pipe for later read, with some boilerplate before
+# and after to clientifize it.
+# Note that the init script's shebang will be ignored when executed by bash from
+# the script generated below.
+{ cat <<'PREINIT'; cat <<INIT; cat <<'POSTINIT'; } >&8; shift
+unset HISTFILE; unset PS1 # This line will still have the default PS1
+
+# Various self-destructing functions to set up the environment at the end of the
+# initialization. They can be overridden by the initialization script.
+_PS1() { export PS1='> '; unset -f _PS1; }
+_BANNER() { printf '%s\n' "Client initialized" ""; unset -f _BANNER; }
+_HISTORY() {
+  if [ -n "$_HISTFILE" ]; then
+    mkdir -p "$(dirname "$_HISTFILE")"
+    HISTFILE="$_HISTFILE"
+    history -r
+  fi
+  unset -v _HISTFILE
+  unset -f _HISTORY
+}
+PREINIT
+
+source $(printf %q "$SCRIPT")
+INIT
+
+# We close the initialization script's file descriptor and reassign the normal
+# stdin, which is kept open and waiting for user input.
+# Because of this magic, the line on which `exec` appears will be effectively
+# the last line of the initialization script. Anything coming afterwards is
+# effectively ignored.
+# For this reason, commands that have to be executed after the `exec` must be on
+# the same line as the `exec` command.
+{ exec 8>&- <&9 9>&-; _PS1; history -c; _HISTORY; } && { tput rmcup; _BANNER; }
+POSTINIT
+
+# Set alternate screen mode to not pollute current session with the
+# initialization script.
+tput smcup
+
+# Redirect magic, with the aim of keeping stdin open after executing the
+# initialization script.
+# Note that bash will output its prompt and the "typed commands" to stderr, so
+# if we want to hide that during the execution we also hide by default the
+# commands' errors on stderr (or we must explicitly redirect stderr for every
+# command). See https://unix.stackexchange.com/a/381081 for a clear explanation.
+# Instead we "clear" the screen after the script's execution. It is not nearly
+# as clean as it could be, but hey, it works!
+exec -a "$SCRIPT" bash -i -s -- "$@" 9<&0 <&8

@@ -1,0 +1,45 @@
+#!/bin/sh
+
+# USAGE ######################################################################
+read -r -d '' USAGE <<'EOF'
+Triggers an audible and visual alert.
+
+USAGE
+  beep [OPTION...]
+
+OPTIONS
+  -h    Displays this help and exits.
+  -n N  Specifies the number of alerts. Default is 1.
+  -a    Use only audible alerts.
+  -v    Use only visual alerts.
+
+EOF
+##############################################################################
+
+n=1
+bel=1
+vbel=1
+
+OPTIND=1
+while getopts ':hn:av' opt; do
+  case "$opt" in
+  n) n="$OPTARG" ;;
+  a) bel=1; vbel=0 ;;
+  v) bel=0; vbel=1 ;;
+  h) echo "$USAGE"; exit 0 ;;
+  \?) echo "$0: Illegal option -- $OPTARG. Try -h to get usage."; exit 1 ;;
+  esac
+done
+shift $((OPTIND-1))
+
+if (( bel )); then
+  for i in $(seq 1 "$n"); do
+    echo -ne '\a'; sleep 0.15
+  done &
+fi
+
+if (( vbel )); then
+  for i in $(seq 1 "$n"); do
+    printf '\e[?5h'; sleep 0.075; printf '\e[?5l'; sleep 0.075
+  done &
+fi
