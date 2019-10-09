@@ -47,7 +47,7 @@ unset WD
 # and after to clientifize it.
 # Note that the init script's shebang will be ignored when executed by bash from
 # the script generated below.
-{ cat <<'PREINIT'; cat <<INIT; cat <<'POSTINIT'; } >&8; shift
+{ cat <<'PREINIT'; cat <<INIT; cat <<'POSTINIT'; } >&8
 unset HISTFILE; unset PS1 # This line will still have the default PS1
 
 # Various self-destructing functions to set up the environment at the end of the
