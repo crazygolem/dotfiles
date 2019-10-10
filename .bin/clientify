@@ -15,7 +15,8 @@
 # yourself.
 #
 # Do not use the file descriptors 8 and 9 in your initialization script, as they
-# are used by clientify to make it work.
+# are used by clientify to make it work. They can be used again after the
+# initialization.
 #
 # IMPORTANT NOTES
 #
@@ -36,7 +37,8 @@
 # specified in the shebang.
 SCRIPT="$1"; shift
 
-# Create a named pipe, open it and unlink it so it doesn't appear in the FS
+# Create a named pipe, open it and unlink it so it doesn't appear in the FS.
+# Note: `mkfifo` requires to be provided with a path to a non-existent file.
 WD=$(mktemp -d --suffix ."$(basename "$0")")
 mkfifo $WD/input
 exec 8<> $WD/input
@@ -45,8 +47,9 @@ unset WD
 
 # Copy the init script to the pipe for later read, with some boilerplate before
 # and after to clientifize it.
-# Note that the init script's shebang will be ignored when executed by bash from
-# the script generated below.
+#
+# Note that the init script's shebang will be ignored when read by bash with the
+# source command.
 { cat <<'PREINIT'; cat <<INIT; cat <<'POSTINIT'; } >&8
 unset HISTFILE; unset PS1 # This line will still have the default PS1
 
@@ -67,15 +70,15 @@ INIT
 # Because of this magic, and since bash usually reads commands line by line
 # before executing them, the line on which `exec` appears will be effectively
 # the last line that bash sees from the initialization script. Anything coming
-# afterwards is effectively ignored. For this reason, commands that have to be executed after the `exec` must be on
-# the same line as the `exec` command.
+# afterwards is effectively ignored. For this reason, commands that have to be
+# executed after the `exec` must be on the same line as the `exec` command.
 #
-# Alternatively, it is possible to force
-# bash to read several lines before executing them by grouping the commands with
-# curly braces. Even so, bash will execute the grouped commands as soon as it
-# has read a line and the braces are matched, which means that commands that
-# appear afterwards will be again ignored (this can be avoided by opening a new
-# group on the same line where the previous group is closed).
+# Alternatively, it is possible to force bash to read several lines before
+# executing them by grouping the commands with curly braces. Even so, bash will
+# execute the grouped commands as soon as it has read a line and the braces are
+# matched, which means that commands that appear afterwards will be again
+# ignored (this can be avoided by opening a new group on the same line where the
+# previous group is closed).
 {
   # The magic
   exec 8>&- <&9 9>&-
