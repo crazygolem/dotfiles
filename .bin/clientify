@@ -50,19 +50,12 @@ unset WD
 { cat <<'PREINIT'; cat <<INIT; cat <<'POSTINIT'; } >&8
 unset HISTFILE; unset PS1 # This line will still have the default PS1
 
-# Various self-destructing functions to set up the environment at the end of the
-# initialization. They can be overridden by the initialization script.
-_PS1() { export PS1='> '; unset -f _PS1; }
-_BANNER() { printf '%s\n' "Client initialized" ""; unset -f _BANNER; }
-_HISTORY() {
-  if [ -n "$_HISTFILE" ]; then
-    mkdir -p "$(dirname "$_HISTFILE")"
-    HISTFILE="$_HISTFILE"
-    history -r
-  fi
-  unset -v _HISTFILE
-  unset -f _HISTORY
-}
+# Various self-destructing variables and functions to set up the environment at
+# the end of the initialization. They can be overridden by the initialization
+# script.
+_PS1='> '
+_HISTFILE=
+_BANNER=("Client initialized" "")
 PREINIT
 
 source $(printf %q "$SCRIPT")
@@ -70,16 +63,46 @@ INIT
 
 # We close the initialization script's file descriptor and reassign the normal
 # stdin, which is kept open and waiting for user input.
-# Because of this magic, the line on which `exec` appears will be effectively
-# the last line of the initialization script. Anything coming afterwards is
-# effectively ignored.
-# For this reason, commands that have to be executed after the `exec` must be on
+#
+# Because of this magic, and since bash usually reads commands line by line
+# before executing them, the line on which `exec` appears will be effectively
+# the last line that bash sees from the initialization script. Anything coming
+# afterwards is effectively ignored. For this reason, commands that have to be executed after the `exec` must be on
 # the same line as the `exec` command.
-{ exec 8>&- <&9 9>&-; _PS1; history -c; _HISTORY; } && { tput rmcup; _BANNER; }
+#
+# Alternatively, it is possible to force
+# bash to read several lines before executing them by grouping the commands with
+# curly braces. Even so, bash will execute the grouped commands as soon as it
+# has read a line and the braces are matched, which means that commands that
+# appear afterwards will be again ignored (this can be avoided by opening a new
+# group on the same line where the previous group is closed).
+{
+  # The magic
+  exec 8>&- <&9 9>&-
+
+  export PS1="$_PS1"; unset -v _PS1
+
+  history -c
+  if [ -n "$_HISTFILE" ]; then
+    mkdir -p "$(dirname "$_HISTFILE")"
+    HISTFILE="$_HISTFILE"
+    history -r
+  fi
+  unset -v _HISTFILE
+
+  # Reset the alternate screen, erasing the initialization script (incl.
+  # everything until the end of the commands group). Anything printed to stdout
+  # after this point will remain visible to the user.
+  tput rmcup
+  printf '%s\n' "${_BANNER[@]}"; unset -v _BANNER
+}
 POSTINIT
 
 # Set alternate screen mode to not pollute current session with the
-# initialization script.
+# initialization script. As the terminal that receives the control sequence is
+# independent from the shell, the alternate screen won't be affected by the
+# `exec` shenanigans (and resetting the alternate screen can be done in the new
+# shell).
 tput smcup
 
 # Redirect magic, with the aim of keeping stdin open after executing the
