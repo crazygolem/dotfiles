@@ -21,6 +21,7 @@ alias vimr='vim -R'
 alias n='vimr -'
 alias m='less'
 alias mpa='mpv --no-video --mute=no --msg-level=ffmpeg=no'
+alias dla='youtube-dl -f bestaudio -x --add-metadata --embed-thumbnail'
 
 alias diff='colordiff' # requires colordiff package
 alias grep='grep --color=auto'
