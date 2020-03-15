@@ -1,7 +1,6 @@
 # Common RC config for bash and zsh
 ################################################################################
 
-export PATH=$HOME/.local/bin:$PATH
 export EDITOR="vim"
 
 if [ -x "$(command -v nvim)" ]; then
