@@ -15,6 +15,15 @@ autoload -Uz compinit && compinit         # Tab completion
 #setopt autocd
 unsetopt correct_all  # Disable autocorrection (if enabled)
 
+# https://wiki.archlinux.org/index.php/Zsh#Help_command
+autoload -Uz run-help
+autoload -Uz run-help-git
+autoload -Uz run-help-ip
+autoload -Uz run-help-openssl
+autoload -Uz run-help-sudo
+unalias run-help
+alias help=run-help
+
 # Executes expanded command immediately upon pressing [enter]
 setopt no_hist_verify
 
