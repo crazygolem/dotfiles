@@ -1,6 +1,34 @@
 # Common RC config for bash and zsh
 ################################################################################
 
+
+# Setting the PATH in commonrc (unlike in a profile) allows to quickly update
+# PATH for all new shells. However if done naively, the path might grow
+# uncontrollably. To avoid this, the path_prepend/path_append functions shall
+# be used.
+# See: https://unix.stackexchange.com/a/32054
+
+path_prepend() {
+  case :"$PATH": in
+    *:"$1":*) ;;
+    *) PATH="$1":"$PATH" ;;
+  esac
+}
+
+path_append() {
+  case :"$PATH": in
+    *:"$1":*) ;;
+    *) PATH="$PATH":"$1" ;;
+  esac
+}
+
+path_prepend "$HOME"/.local/bin
+export PATH
+
+unset -f path_prepend
+unset -f path_append
+
+
 export EDITOR="vim"
 
 if [ -x "$(command -v nvim)" ]; then
