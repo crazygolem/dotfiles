@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/bash
 
 # Ersatz for `sed -i` that doesn't exist on Solaris
 #
