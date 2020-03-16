@@ -1,5 +1,5 @@
-source "$HOME/.profile"
+source "$HOME"/.profile
 
-if [ -f "$HOME/.bashrc" ]; then
-  . "$HOME/.bashrc"
+if [[ $- = *i* ]] && [[ -f "$HOME"/.bashrc ]]; then
+  source "$HOME"/.bashrc
 fi
