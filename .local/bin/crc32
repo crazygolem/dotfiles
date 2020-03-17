@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # Compute the CRC32 checksum of files, with a nice output.
 #
