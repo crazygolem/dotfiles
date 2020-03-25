@@ -89,11 +89,4 @@ if [ $# -gt 0 ]; then
   kill $pid
 fi
 
-# Dropping the curtain manually should not technically be necessary, but if we
-# directly suspend, the user's screen might still be briefly shown when waking
-# up for some reason.
-#loginctl lock-session &&
-#  xset dpms force on
-#{ sleep 2; systemctl suspend -i; }&
-
 systemctl suspend -i
