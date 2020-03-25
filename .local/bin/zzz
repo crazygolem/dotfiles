@@ -78,14 +78,15 @@ oninput() {
 
 if [ $# -gt 0 ]; then
   seconds="$(parsetime "$@")" || exit 1
-  countdown "${seconds%.*}" &
 
-  # The fact that oninput is able to read stdin in a background process seems
-  # to be a bug triggered by the fact that this block is inside an 'if': move
-  # everything outside the branch, and nothing works anymore...
+  # stdin must be explicitly forwarded to the background process, otherwise it
+  # won't receive input except under weird circumstances (cf. past revisions).
   oninput "Press any key to turn off the screen or ^C to cancel" \
-    xset dpms force off &
-  sleep "$@"
+    xset dpms force off \
+    <&0 & pid=$!
+
+  countdown "${seconds%.*}"
+  kill $pid
 fi
 
 # Dropping the curtain manually should not technically be necessary, but if we
