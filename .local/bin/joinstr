@@ -1,0 +1,24 @@
+#!/bin/bash
+#
+# Join arguments into a single string using the first argument as a separator.
+#
+# The script does not rely on any external commands, but in return it heavily
+# relies on bashisms and bash builtins.
+#
+# USAGE
+#
+#   joinstr SEPARATOR STRING...
+#
+
+sep="$1"; shift
+
+# Characters with special meaning in printf format string must be escaped.
+# The length before escaping is the length after formatting.
+n=${#sep}
+sep="${sep//%/%%}"
+sep="${sep//\\/\\\\}"
+
+# The real deal. All the rest is input sanitation. If you control your
+# separator, you only need the following two lines.
+printf -v str -- "${sep}%s" "$@"
+echo "${str:n}" # Remove leading separator
