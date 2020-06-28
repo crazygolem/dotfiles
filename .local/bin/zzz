@@ -43,6 +43,50 @@ parsetime() {
   echo $s
 }
 
+screenoff() {
+  # On X11, the X server handles DPMS and the screen can be turned off with
+  #
+  #     xset dpms force off
+  #
+  # However on wayland it doesn't work like that anymore.
+  #
+  # On Wayland with the Mutter compositor (default for GNOME), the following
+  # command can be used to switch the screen's state:
+  #
+  #   busctl --user set-property org.gnome.Mutter.DisplayConfig \
+  #     /org/gnome/Mutter/DisplayConfig org.gnome.Mutter.DisplayConfig \
+  #     PowerSaveMode i 3
+  #
+  # However it doesn't handle turning the screen back on on keypress or mouse
+  # movement (the screen stays off until the reverting command is explicitly
+  # called). Note: The Mutter.DisplayConfig API is specified at [1].
+  #
+  # An alternative is to activate the screensaver, which does not lock the
+  # screen and under GNOME turns off the screen almost immediately:
+  #
+  #     busctl --user call org.gnome.Shell /org/gnome/ScreenSaver \
+  #       org.gnome.ScreenSaver SetActive b true
+  #
+  # The screensaver is disabled on key presses and mouse movements, so basically
+  # acts like the `xset dpms force off` command in X11.
+  #
+  #
+  # [1]: https://gitlab.gnome.org/GNOME/mutter/blob/master/src/org.gnome.Mutter.DisplayConfig.xml#L256
+
+  case "$XDG_SESSION_TYPE" in
+    x11)
+      xset dpms force off
+      ;;
+    wayland)
+      busctl --user call org.gnome.Shell /org/gnome/ScreenSaver \
+        org.gnome.ScreenSaver SetActive b true
+      ;;
+    *)
+      >&2 echo 'The screen cannot be turned off from this session.'
+      ;;
+  esac
+}
+
 # Displays a countdown for the specified number (int) of seconds.
 countdown() {
   local s fmt
@@ -82,7 +126,7 @@ if [ $# -gt 0 ]; then
   # stdin must be explicitly forwarded to the background process, otherwise it
   # won't receive input except under weird circumstances (cf. past revisions).
   oninput "Press any key to turn off the screen or ^C to cancel" \
-    xset dpms force off \
+    screenoff \
     <&0 & pid=$!
 
   countdown "${seconds%.*}"
