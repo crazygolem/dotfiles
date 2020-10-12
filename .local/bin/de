@@ -7,12 +7,14 @@ names() {
   docker container inspect --format='{{.Name}}' "$@"
 }
 
-[ "$(getopt -T >/dev/null 2>&1; echo $?)" = 4 ] || >&2 echo 'WARNING: Missing recent GNU getopt';
-OPTS=$(getopt -o e: --name "$0" -- "$@") || exit 1
+[ "$(getopt -T >/dev/null 2>&1; echo $?)" = 4 ] || \
+  >&2 echo 'WARNING: Missing recent GNU getopt'
+OPTS=$(getopt -o es: --name "$0" -- "$@") || exit 1
 eval set -- "$OPTS"
 while :; do
   case "$1" in
     -e) exact=1; shift ;;
+    -s) command="$2"; shift 2 ;;
     --) shift; break ;;
     *)  >&2 echo "Internal error, unhandled option: $1"; exit 1 ;;
   esac
@@ -21,8 +23,7 @@ done
 if (( exact )); then
   instance=("$1")
 else
-  filter="$1"
-  instance=($(docker container ls -q -f "name=$filter"))
+  instance=($(docker container ls -q -f "name=$1"))
 fi
 
 if [ ${#instance[@]} -eq 0 ]; then
@@ -35,4 +36,4 @@ elif [ ${#instance[@]} -gt 1 ]; then
 fi
 
 echo "Connecting to ${instance[@]} $(names "${instance[@]}")"
-docker container exec -it "${instance[@]}" bash
+docker container exec -it "${instance[@]}" "${command:-bash}"
