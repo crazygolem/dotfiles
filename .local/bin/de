@@ -19,7 +19,9 @@ OPTIONS
         Use this option if the target container's name is a substring of
         another's.
 
-  -s SHELL
+  -s    Use sh instead of bash
+
+  -S SHELL
         Use the specified SHELL instead of bash
 EOF
 ################################################################################
@@ -34,13 +36,14 @@ lookup() {
 
 [ "$(getopt -T >/dev/null 2>&1; echo $?)" = 4 ] || \
   >&2 echo 'WARNING: Missing recent GNU getopt'
-OPTS=$(getopt -o hes: --name "$0" -- "$@") || exit 1
+OPTS=$(getopt -o hesS: --name "$0" -- "$@") || exit 1
 eval set -- "$OPTS"
 while :; do
   case "$1" in
     -h) echo "$USAGE"; exit 0 ;;
     -e) exact=1; shift ;;
-    -s) command="$2"; shift 2 ;;
+    -s) command=sh ; shift ;;
+    -S) command="$2"; shift 2 ;;
     --) shift; break ;;
     *)  >&2 echo "Internal error, unhandled option: $1"; exit 1 ;;
   esac
