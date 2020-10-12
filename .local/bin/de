@@ -5,8 +5,7 @@
 
 ### USAGE ######################################################################
 read -r -d '' USAGE <<'EOF'
-Get a shell (bash by default) into a docker container specified by (port of) its
-name
+Get a shell into a docker container specified by (part of) its name.
 
 USAGE
 
