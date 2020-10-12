@@ -3,16 +3,38 @@
 # Get a shell into a docker container specified by (part of) its name
 #
 
+### USAGE ######################################################################
+read -r -d '' USAGE <<'EOF'
+Get a shell (bash by default) into a docker container specified by (port of) its
+name
+
+USAGE
+
+  de [OPTIONS] FILTER
+
+OPTIONS
+
+  -h    Show this help and exit
+
+  -e    Match on the specified FILTER exactly.
+        Use this option if the target container's name is a prefix of another.
+
+  -s SHELL
+        Use the specified SHELL instead of bash
+EOF
+################################################################################
+
 names() {
   docker container inspect --format='{{.Name}}' "$@"
 }
 
 [ "$(getopt -T >/dev/null 2>&1; echo $?)" = 4 ] || \
   >&2 echo 'WARNING: Missing recent GNU getopt'
-OPTS=$(getopt -o es: --name "$0" -- "$@") || exit 1
+OPTS=$(getopt -o hes: --name "$0" -- "$@") || exit 1
 eval set -- "$OPTS"
 while :; do
   case "$1" in
+    -h) echo "$USAGE"; exit 0 ;;
     -e) exact=1; shift ;;
     -s) command="$2"; shift 2 ;;
     --) shift; break ;;
