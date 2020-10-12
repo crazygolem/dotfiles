@@ -5,7 +5,7 @@
 
 ### USAGE ######################################################################
 read -r -d '' USAGE <<'EOF'
-Get a shell into a docker container specified by (part of) its name.
+Get a shell into a docker container specified by (part of) its name or ID.
 
 USAGE
 
@@ -15,8 +15,9 @@ OPTIONS
 
   -h    Show this help and exit
 
-  -e    Match on the specified FILTER exactly.
-        Use this option if the target container's name is a prefix of another.
+  -e    Match on the specified FILTER exactly, by container name.
+        Use this option if the target container's name is a substring of
+        another's.
 
   -s SHELL
         Use the specified SHELL instead of bash
@@ -25,6 +26,10 @@ EOF
 
 names() {
   docker container inspect --format='{{.Name}}' "$@"
+}
+
+lookup() {
+  docker container ls -q -f "$1"
 }
 
 [ "$(getopt -T >/dev/null 2>&1; echo $?)" = 4 ] || \
@@ -42,9 +47,16 @@ while :; do
 done
 
 if (( exact )); then
-  instance=("$1")
+  instance=($(lookup "name=^${1}$"))
 else
-  instance=($(docker container ls -q -f "name=$1"))
+  instance=($(lookup "name=${1}"))
+fi
+
+# Exact matching on ID doesn't make much sense as it would only match the entire
+# ID instead of the truncated one as output by `docker ps`
+if ! ((exact)) && [ ${#instance[@]} -eq 0 ]; then
+  >&2 echo "No container matching by name, attempting ID match"
+  instance=($(lookup "id=${1}"))
 fi
 
 if [ ${#instance[@]} -eq 0 ]; then
