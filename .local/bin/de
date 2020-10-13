@@ -50,16 +50,16 @@ while :; do
 done
 
 if (( exact )); then
-  instance=($(lookup "name=^${1}$"))
+  mapfile -t instance < <(lookup "name=^${1}$")
 else
-  instance=($(lookup "name=${1}"))
+  mapfile -t instance < <(lookup "name=${1}")
 fi
 
 # Exact matching on ID doesn't make much sense as it would only match the entire
 # ID instead of the truncated one as output by `docker ps`
 if ! ((exact)) && [ ${#instance[@]} -eq 0 ]; then
   >&2 echo "No container matching by name, attempting ID match"
-  instance=($(lookup "id=${1}"))
+  mapfile -t instance < <(lookup "id=${1}")
 fi
 
 if [ ${#instance[@]} -eq 0 ]; then
@@ -71,5 +71,5 @@ elif [ ${#instance[@]} -gt 1 ]; then
   exit 2
 fi
 
-echo "Connecting to ${instance[@]} $(names "${instance[@]}")"
-docker container exec -it "${instance[@]}" "${command:-bash}"
+echo "Connecting to ${instance} $(names "${instance}")"
+docker container exec -it "${instance}" "${command:-bash}"
