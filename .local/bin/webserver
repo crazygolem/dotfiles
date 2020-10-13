@@ -1,0 +1,100 @@
+#!/bin/bash
+
+### USAGE ######################################################################
+read -r -d '' USAGE <<'EOF'
+Locally serve static files
+
+This script runs a caddy server in a docker container, in a similar way to what
+the following command would do in your terminal:
+
+    caddy file-server --listen localhost:<8080|8443|PORT> \
+        [--root <ROOT>] --browse --access-log
+
+but tweaks the log output to be more readable (albeit less informative) on a
+terminal and writes HTTP errors in the responses' body (instead of displaying
+a blank page).
+
+USAGE
+
+    webserver [OPTIONS] [ROOT]
+
+        ROOT    Root path to serve.
+                If omitted, the current directory is served.
+
+OPTIONS
+
+    -h  Show this help and exit
+
+    -b INTERFACE
+        Binds to the specified interface. Use 0.0.0.0 to bind to all interfaces.
+        By default binds to localhost.
+
+    -p PORT
+        Listen on the specified port.
+        By default listens on 8080 or 8443 depending on the protocol.
+
+    -s  Use HTTPS.
+        By default HTTP is used.
+
+    -U  Update the caddy server to the latest version available in the docker
+        hub before starting it.
+EOF
+################################################################################
+
+
+[ "$(getopt -T >/dev/null 2>&1; echo $?)" = 4 ] || \
+    >&2 echo 'WARNING: Missing recent GNU getopt'
+OPTS=$(getopt -o hb:p:sU --name "$0" -- "$@") || exit 1
+eval set -- "$OPTS"
+while :; do
+    case "$1" in
+        -h) echo "$USAGE"; exit 0 ;;
+        -b) BIND="$2"; shift 2 ;;
+        -p) PORT="$2"; shift 2 ;;
+        -s) SECURE=1; shift ;;
+        -U) UPDATE=1; shift ;;
+        --) shift; break ;;
+        *)  >&2 echo "Internal error, unhandled option: $1"; exit 1 ;;
+    esac
+done
+
+BIND="${BIND:-127.0.0.1}"
+
+if (( SECURE )); then
+    EPORT="${PORT:-8443}"
+    IPORT=443
+else
+    EPORT="${PORT:-8080}"
+    IPORT=80
+fi
+
+ROOT="${1:-$PWD}"
+
+CADDYFILE="$(mktemp)"
+cat <<EOF >"$CADDYFILE"
+localhost:$IPORT
+
+root * /srv
+file_server browse
+
+log {
+    format single_field common_log
+}
+
+handle_errors {
+    handle {
+        respond "{http.error.status_code} {http.error.status_text}" {http.error.status_code}
+    }
+}
+EOF
+
+
+if (( UPDATE )) || ! podman image exists caddy; then
+    podman pull caddy
+fi
+
+podman run --rm -it \
+    --publish "$BIND":"$EPORT":"$IPORT" \
+    --volume "$CADDYFILE":/etc/caddy/Caddyfile \
+    --volume "$ROOT":/srv:ro \
+    caddy
