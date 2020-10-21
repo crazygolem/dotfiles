@@ -93,6 +93,7 @@ if (( UPDATE )) || ! podman image exists caddy; then
     podman pull caddy
 fi
 
+echo "Serving on ${BIND}:${EPORT}..."
 podman run --rm -it \
     --publish "$BIND":"$EPORT":"$IPORT" \
     --volume "$CADDYFILE":/etc/caddy/Caddyfile \
