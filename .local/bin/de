@@ -11,11 +11,20 @@ USAGE
 
   de [OPTIONS] FILTER
 
+    FILTER
+        Looks for a container with FILTER anywhere in its name.
+        If FILTER appears in more than one container's name, the operation is
+        aborted.
+        If FILTER does not appear in any container name, FILTER is matched on
+        the containers' ID, where it must match from the start.
+        If there is still no result, the operation is aborted.
+
 OPTIONS
 
   -h    Show this help and exit
 
-  -e    Match on the specified FILTER exactly, by container name.
+  -e    Match on the specified FILTER exactly, by container name only (no
+        fallback ID matching).
         Use this option if the target container's name is a substring of
         another's.
 
@@ -56,10 +65,12 @@ else
 fi
 
 # Exact matching on ID doesn't make much sense as it would only match the entire
-# ID instead of the truncated one as output by `docker ps`
+# ID instead of the truncated one as output by `docker ps`. However matching in
+# the middle doesn't make more sense, so we match from the beginning.
 if ! ((exact)) && [ ${#instance[@]} -eq 0 ]; then
   >&2 echo "No container matching by name, attempting ID match"
-  mapfile -t instance < <(lookup "id=${1}")
+  # Podman does partial matching on IDs and does not allow anchors
+  mapfile -t instance < <(lookup "id=${1}" | grep -E "^${1}")
 fi
 
 if [ ${#instance[@]} -eq 0 ]; then
