@@ -1,0 +1,51 @@
+#!/bin/bash
+
+### USAGE #####################################################################
+read -r -d '' USAGE <<'EOF'
+Show all the certificates served from a domain.
+
+USAGE
+
+    showcerts [OPTIONS...] DOMAIN[:PORT]
+
+OPTIONS
+
+    -h  Show this help and exit
+
+    -v  Verbose mode; the PEM certificates are output as well
+EOF
+###############################################################################
+
+[ "$(getopt -T >/dev/null 2>&1; echo $?)" = 4 ] || { >&2 echo 'WARNING: Missing recent GNU getopt'; }
+
+OPTS=$(getopt -o hv --name "$0" -- "$@") || exit 1
+eval set -- "$OPTS"
+while :; do
+  case "$1" in
+    -h) echo "$USAGE"; exit ;;
+    -v) SHOWPEM=1; shift ;;
+    --) shift; break ;;
+    *)  >&2 echo "Internal error, unhandled option: $1"; exit 1 ;;
+  esac
+done
+
+DOMAIN="$(echo "$1" | cut -d: -f1)"
+PORT="$(echo "$1" | cut -s -d: -f2)"
+
+openssl s_client -showcerts -connect "${DOMAIN}:${PORT:-443}" -servername "$DOMAIN" </dev/null 2>&1 \
+    | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' \
+    | sed -e '/-END CERTIFICATE-/{N;s/\n/\x0/}' -e '$s/$//' | head -c -1 \
+    | xargs -0r bash -c '
+        SHOWPEM="$1"; shift
+
+        for pem in "$@"; do
+            (( SHOWPEM )) && echo "$pem"
+            {
+                echo "$pem" | openssl x509 -noout -subject -issuer -serial -dates
+                for dgst in md5 sha1 sha256; do
+                    echo "$pem" | openssl x509 -noout -fingerprint -"$dgst"
+                done
+            } | sed -e s/=/\\t/ | column -ts $'\''\t'\''
+            echo
+        done
+    ' "$0" "$SHOWPEM"
