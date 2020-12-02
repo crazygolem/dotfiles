@@ -42,7 +42,7 @@ while IFS= read -r -d '' pem; do
     } | sed -e 's/=/\t/' | column -ts $'\t'
     echo
 done < <(
-    openssl s_client -showcerts -connect "${DOMAIN}:${PORT:-443}" -servername "$DOMAIN" </dev/null 2>&1 \
+    openssl s_client -showcerts -connect "${DOMAIN}:${PORT:-443}" -servername "$DOMAIN" </dev/null 2>/dev/null \
         | sed -n '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' \
         | sed '/-END CERTIFICATE-/{$s/$/\x0/;$n;N;s/\n/\x0/}' | sed '$a\' | head -c -1
 )
