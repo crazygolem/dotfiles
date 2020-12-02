@@ -32,20 +32,17 @@ done
 DOMAIN="$(echo "$1" | cut -d: -f1)"
 PORT="$(echo "$1" | cut -s -d: -f2)"
 
-openssl s_client -showcerts -connect "${DOMAIN}:${PORT:-443}" -servername "$DOMAIN" </dev/null 2>&1 \
-    | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' \
-    | sed -e '/-END CERTIFICATE-/{N;s/\n/\x0/}' -e '$s/$//' | head -c -1 \
-    | xargs -0r bash -c '
-        SHOWPEM="$1"; shift
-
-        for pem in "$@"; do
-            (( SHOWPEM )) && echo "$pem"
-            {
-                echo "$pem" | openssl x509 -noout -subject -issuer -serial -dates
-                for dgst in md5 sha1 sha256; do
-                    echo "$pem" | openssl x509 -noout -fingerprint -"$dgst"
-                done
-            } | sed -e s/=/\\t/ | column -ts $'\''\t'\''
-            echo
+while IFS= read -r -d '' pem; do
+    (( SHOWPEM )) && echo "$pem"
+    {
+        echo "$pem" | openssl x509 -noout -subject -issuer -serial -dates
+        for dgst in md5 sha1 sha256; do
+            echo "$pem" | openssl x509 -noout -fingerprint -"$dgst"
         done
-    ' "$0" "$SHOWPEM"
+    } | sed -e 's/=/\t/' | column -ts $'\t'
+    echo
+done < <(
+    openssl s_client -showcerts -connect "${DOMAIN}:${PORT:-443}" -servername "$DOMAIN" </dev/null 2>&1 \
+        | sed -n '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' \
+        | sed '/-END CERTIFICATE-/{$s/$/\x0/;$n;N;s/\n/\x0/}' | sed '$a\' | head -c -1
+)
