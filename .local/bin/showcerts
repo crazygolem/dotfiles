@@ -38,7 +38,9 @@ openssl s_client -showcerts -connect "${DOMAIN}:${PORT:-443}" -servername "$DOMA
   | while IFS= read -r -d '' pem; do
     (( SHOWPEM )) && echo "$pem"
     {
-      echo "$pem" | openssl x509 -noout -subject -issuer -serial -dates
+      echo "$pem" | openssl x509 -noout -subject
+      echo "$pem" | openssl x509 -noout -ext subjectAltName | grep -v '^\S' | sed 's/\s*/subjectAltName=/'
+      echo "$pem" | openssl x509 -noout -issuer -dates -serial
       for dgst in md5 sha1 sha256; do
         echo "$pem" | openssl x509 -noout -fingerprint -"$dgst"
       done
