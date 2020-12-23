@@ -110,6 +110,7 @@ cnorea <expr> X (getcmdtype() is# ':' && getcmdline() is# 'X') ? 'x' : 'X'
 " Word wrapping
 set wrap
 set linebreak
+set display=truncate          " Show '@@@' in the last line if it is truncated
 
 " Syntactic coloration
 syntax on
@@ -243,6 +244,7 @@ set statusline+=\ %11(☰\ %l:%L%)                " line / total lines
 set statusline+=\ %P          " percent through file
 
 set showcmd                   " Show typed commands and selection length
+set wildmenu                  " Display completion matches in the status line
 set showmode                  " Show current mode (if not normal mode)
 
 " Status line context colors
