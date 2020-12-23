@@ -1,0 +1,16 @@
+[core]
+  excludesfile = ~/.gitignore
+[alias]
+	permission-reset = !git diff -p -R | grep -E \"^(diff|(old|new) mode)\" | git apply
+	la = log --oneline --decorate --all --graph
+[push]
+	default = simple
+[pull]
+	ff = only
+[credential]
+	helper = /usr/share/git/credential/gnome-keyring/git-credential-gnome-keyring
+[user]
+	email = superjun1@gmail.com
+	name = Jeremiah Menétrey
+[log]
+	abbrevCommit = true
