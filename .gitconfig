@@ -14,3 +14,7 @@
 	name = Jeremiah Menétrey
 [log]
 	abbrevCommit = true
+[diff "archive"]
+	# Assumes 7zip is installed
+	textconv = 7z -so e
+	binary = true

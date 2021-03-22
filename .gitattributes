@@ -1,0 +1,102 @@
+# Archive support for git diff.
+#
+# Files with the following extensions are considered as archives for the
+# purpose of git diff.
+# Extra extensions can be added on a project basis in $GIT_DIR/info/attributes
+# or on a directory basis (incl. project-wide) in a .gitattributes file.
+# See https://git-scm.com/docs/gitattributes
+#
+# Formats supported by 7-zip, extensions list adapted from
+# https://sevenzip.osdn.jp/chm/general/formats.htm
+*.[0-9][0-9][0-9]   diff=archive
+*.7z                diff=archive
+*.a                 diff=archive
+*.apm               diff=archive
+*.ar                diff=archive
+*.arj               diff=archive
+*.bz2               diff=archive
+*.bzip2             diff=archive
+*.cab               diff=archive
+*.chi               diff=archive
+*.chm               diff=archive
+*.chq               diff=archive
+*.chw               diff=archive
+*.cpio              diff=archive
+*.cramfs            diff=archive
+*.deb               diff=archive
+*.dmg               diff=archive
+*.doc               diff=archive
+*.docx              diff=archive
+*.epub              diff=archive
+*.esd               diff=archive
+*.ext               diff=archive
+*.ext2              diff=archive
+*.ext3              diff=archive
+*.ext4              diff=archive
+*.fat               diff=archive
+*.gz                diff=archive
+*.gzip              diff=archive
+*.hfs               diff=archive
+*.hfsx              diff=archive
+*.hxi               diff=archive
+*.hxq               diff=archive
+*.hxr               diff=archive
+*.hxs               diff=archive
+*.hxw               diff=archive
+*.ihex              diff=archive
+*.img               diff=archive
+*.img               diff=archive
+*.img               diff=archive
+*.img               diff=archive
+*.img               diff=archive
+*.iso               diff=archive
+*.iso               diff=archive
+*.jar               diff=archive
+*.lha               diff=archive
+*.lib               diff=archive
+*.lit               diff=archive
+*.lzh               diff=archive
+*.lzma              diff=archive
+*.mbr               diff=archive
+*.mbr               diff=archive
+*.msi               diff=archive
+*.mslz              diff=archive
+*.msp               diff=archive
+*.mub               diff=archive
+*.nsis              diff=archive
+*.ntfs              diff=archive
+*.ods               diff=archive
+*.odt               diff=archive
+*.pkg               diff=archive
+*.ppmd              diff=archive
+*.ppt               diff=archive
+*.pptx              diff=archive
+*.qcow              diff=archive
+*.qcow2             diff=archive
+*.qcow2c            diff=archive
+*.r00               diff=archive
+*.rar               diff=archive
+*.rpm               diff=archive
+*.scap              diff=archive
+*.squashfs          diff=archive
+*.swm               diff=archive
+*.tar               diff=archive
+*.taz               diff=archive
+*.tbz               diff=archive
+*.tbz2              diff=archive
+*.tgz               diff=archive
+*.txz               diff=archive
+*.udf               diff=archive
+*.uefif             diff=archive
+*.vdi               diff=archive
+*.vhd               diff=archive
+*.vmdk              diff=archive
+*.wim               diff=archive
+*.xar               diff=archive
+*.xls               diff=archive
+*.xlsx              diff=archive
+*.xpi               diff=archive
+*.xz                diff=archive
+*.z                 diff=archive
+*.zip               diff=archive
+*.zipx              diff=archive
