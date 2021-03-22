@@ -3,6 +3,8 @@
 [alias]
 	permission-reset = !git diff -p -R | grep -E \"^(diff|(old|new) mode)\" | git apply
 	la = log --oneline --decorate --all --graph
+	find = log --oneline --name-status --grep
+	sdiff = diff --ignore-space-at-eol -b -w --ignore-blank-lines
 [push]
 	default = simple
 [pull]
@@ -14,6 +16,8 @@
 	name = Jeremiah Menétrey
 [log]
 	abbrevCommit = true
+[diff]
+	wsErrorHighlight = all
 [diff "archive"]
 	# Assumes 7zip is installed
 	textconv = 7z -so e
