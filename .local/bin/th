@@ -1,0 +1,47 @@
+#!/bin/bash
+
+### USAGE ######################################################################
+read -r -d '' USAGE <<'EOF'
+Output the first line(s) of stdin to stderr, and the rest to stdout.
+
+This command is typically used to preserve the header row(s) of tabular data
+while feeding subsequent rows to other commands for further processing.
+
+USAGE
+
+    th -h
+        Display this help and exit.
+
+    th [N]
+        Output the first N lines to stderr.
+        Default: 1
+
+EXAMPLE
+
+Keep the header row in the output of ps:
+
+    $ ps -e -o pid,ppid,cmd | th | grep vim                                                                                                                              <>< junior@Baku 17:36
+      PID    PPID CMD
+    56645   56479 vim ./bin/th
+    56650   56064 grep --color=auto vim
+
+EOF
+################################################################################
+
+while getopts 'h' opt; do
+  case "$opt" in
+  \?) exit 1 ;;
+  h) echo "$USAGE"; exit 0 ;;
+  esac
+done
+shift $((OPTIND-1))
+
+n="${1:-1}"; shift
+
+# When it has read the requested number of lines, head exits and so closes its
+# stdin, causing the process substitution to close its file. In turn this makes
+# tee exit potentially before all the data has passed through.
+# The 'exit-nopipe' option prevents tee from exitting in this case (it looks
+# like the file created by the process substitution is recognized as a pipe by
+# tee).
+tee --output-error=exit-nopipe >(head -n "$n" >&2) | tail -n +$((n + 1))
