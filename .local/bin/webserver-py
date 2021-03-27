@@ -1,0 +1,105 @@
+#!/bin/bash
+
+### USAGE ######################################################################
+read -r -d '' USAGE <<'EOF'
+Locally serve static files
+
+This script runs a python webserver with some helpful defaults to serve local
+static files from the current directory.
+
+USAGE
+
+  webserver [OPTIONS] [PORT]
+
+    PORT    Listen on the specified port.
+            By default listens on 8080.
+
+OPTIONS
+
+  -h  Print this help and exit
+  -2  Force using python 2 if available, mainly for testing.
+      Using python 2 can lead to less graceful shutdowns.
+  -U  Serve on all interfaces. By default only the loopback interface is used.
+EOF
+################################################################################
+
+while getopts 'h2U' opt; do
+  case "$opt" in
+  2) force2=1 ;;
+  U) bind=0.0.0.0 ;;
+  h) echo "$USAGE"; exit 0 ;;
+  *) >&2 'Invalid option: $opt. Try -h.'; exit 1 ;;
+  esac
+done
+shift $((OPTIND-1))
+
+bind="${bind:-127.0.0.1}"
+port="${1:-8080}"
+
+# Check that the python version is at least ...
+pyvermin() {
+  # Exit status is inverted (True -> 1; False -> 0)
+  python -c "import sys; sys.exit(sys.version_info < (${1:-0},${2:-0},${3:-0}))"
+}
+
+if type -p python3 >/dev/null || pyvermin 3 && ! ((force2)); then
+  cat <<'EOF' | exec python3 - "$bind" "$port"
+import http.server
+import socketserver
+import sys
+
+# sys.argv contains *all* arguments, incl. the file '-'
+IP = sys.argv[1]
+PORT = int(sys.argv[2])
+
+class RequestHandler(http.server.SimpleHTTPRequestHandler):
+  def do_POST(self):
+    return self.do_GET()
+
+# Allowing address reuse should not be a problem for a development server.
+# See also: https://stackoverflow.com/a/337137
+socketserver.TCPServer.allow_reuse_address = True
+
+with socketserver.TCPServer((IP, PORT), RequestHandler) as httpd:
+  print("Serving HTTP on", (IP or "0.0.0.0"), "port", PORT, "...")
+  try:
+    httpd.serve_forever()
+  except KeyboardInterrupt:
+    pass
+  finally:
+    httpd.shutdown()
+    httpd.server_close()
+EOF
+elif pyvermin 2 6; then
+  cat <<'EOF' | exec python - "$bind" "$port"
+import SimpleHTTPServer
+import SocketServer
+import sys
+
+# sys.argv contains *all* arguments, incl. the file '-'
+IP = sys.argv[1]
+PORT = int(sys.argv[2])
+
+class RequestHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+  def do_POST(self):
+    return self.do_GET()
+
+# Allowing address reuse should not be a problem for a development server.
+# See also: https://stackoverflow.com/a/337137
+SocketServer.TCPServer.allow_reuse_address = True
+
+httpd = SocketServer.TCPServer((IP, PORT), RequestHandler)
+
+print "Serving HTTP on", (IP or "0.0.0.0"), "port", PORT, "..."
+try:
+  httpd.serve_forever()
+except KeyboardInterrupt:
+  pass
+finally:
+  httpd.shutdown()
+  httpd.server_close()
+EOF
+else
+  echo "No suitable version of python found. Python >= 2.6 required."
+  exit 1
+fi
