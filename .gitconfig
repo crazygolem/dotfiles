@@ -2,8 +2,7 @@
   excludesfile = ~/.gitignore
 [alias]
 	permission-reset = !git diff -p -R | grep -E \"^(diff|(old|new) mode)\" | git apply
-	la = log --oneline --decorate --all --graph
-	find = log --oneline --name-status --grep
+	graph = log --oneline --decorate --all --graph
 	sdiff = diff --ignore-space-at-eol -b -w --ignore-blank-lines
 	hide = update-index --assume-unchanged
 	unhide = update-index --no-assume-unchanged
