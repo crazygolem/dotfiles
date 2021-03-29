@@ -5,6 +5,10 @@
 	la = log --oneline --decorate --all --graph
 	find = log --oneline --name-status --grep
 	sdiff = diff --ignore-space-at-eol -b -w --ignore-blank-lines
+	hide = update-index --assume-unchanged
+	unhide = update-index --no-assume-unchanged
+	hidden = "!f(){ git -C \"$GIT_PREFIX\" ls-files -v \"${@:-$PWD}\" | grep \"^[[:lower:]]\"; }; f"
+	ignored = "!f(){ git -C \"$GIT_PREFIX\" status --short --ignored \"$@\" | grep \"^!!\"; }; f"
 [push]
 	default = simple
 [pull]
