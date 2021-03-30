@@ -1,0 +1,21 @@
+#!/bin/sh
+#
+# Fix for GIO only supporting a very restricted number of hardcoded terminal
+# emulators [1]. This shim redirects calls for gnome-terminal to terminator.
+# Save it on your PATH as `gnome-terminal`.
+#
+# [1]: https://gitlab.gnome.org/GNOME/glib/-/issues/338
+#
+
+# Recent versions of GIO will call 'gnome-terminal' as
+#     gnome-terminal -- prog arg ...
+# cf. https://gitlab.gnome.org/GNOME/glib/-/blob/master/gio/gdesktopappinfo.c#L2586
+
+if [ "$1" != -- ]; then
+    >&2 printf '%s (shim): unexpected arguments:' "$0"
+    >&2 printf '%s ' "$@"
+    >&2 printf '\n'
+    exit 1
+fi
+shift
+exec terminator -x "$@"
