@@ -1,0 +1,3 @@
+[Default Applications]
+text/x-shellscript=scripts-launcher.desktop
+application/x-shellscript=scripts-launcher.desktop

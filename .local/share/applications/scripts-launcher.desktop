@@ -4,5 +4,6 @@ Name=Scripts Launcher
 Description=Executes shell sripts
 NoDisplay=true
 Type=Application
+MimeType=text/x-shellscript;application/x-shellscript
 Exec=sh -c 'exec %f'
 Terminal=false
