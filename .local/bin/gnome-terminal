@@ -12,9 +12,7 @@
 # cf. https://gitlab.gnome.org/GNOME/glib/-/blob/master/gio/gdesktopappinfo.c#L2586
 
 if [ "$1" != -- ]; then
-    >&2 printf '%s (shim): unexpected arguments:' "$0"
-    >&2 printf '%s ' "$@"
-    >&2 printf '\n'
+    >&2 printf '%s (shim): unexpected arguments: %s\n' "$0" "$*"
     exit 1
 fi
 shift
