@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Turn bash scripts into interactive clients
 #
@@ -39,10 +39,10 @@ SCRIPT="$1"; shift
 
 # Create a named pipe, open it and unlink it so it doesn't appear in the FS.
 # Note: `mkfifo` requires to be provided with a path to a non-existent file.
-WD=$(mktemp -d --suffix ."$(basename "$0")")
-mkfifo $WD/input
-exec 8<> $WD/input
-rm -rf $WD
+WD="$(mktemp -d --suffix ."$(basename "$0")")"
+mkfifo "$WD"/input
+exec 8<> "$WD"/input
+rm -rf "$WD"
 unset WD
 
 # Copy the init script to the pipe for later read, with some boilerplate before
