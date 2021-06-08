@@ -20,7 +20,7 @@ EXAMPLE
 
 Keep the header row in the output of ps:
 
-    $ ps -e -o pid,ppid,cmd | th | grep vim                                                                                                                              <>< junior@Baku 17:36
+    $ ps -e -o pid,ppid,cmd | th | grep vim
       PID    PPID CMD
     56645   56479 vim ./bin/th
     56650   56064 grep --color=auto vim
