@@ -20,6 +20,7 @@
 [log]
 	abbrevCommit = true
 [diff]
+	noprefix = true
 	wsErrorHighlight = all
 [diff "archive"]
 	# Assumes 7zip is installed
