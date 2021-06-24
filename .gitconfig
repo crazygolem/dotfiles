@@ -10,6 +10,7 @@
 	ignored = "!f(){ git -C \"$GIT_PREFIX\" status --short --ignored \"$@\" | grep \"^!!\"; }; f"
 	hide = update-index --assume-unchanged
 	unhide = update-index --no-assume-unchanged
+	unhide-all = update-index --really-refresh
 	hidden = "!f(){ git -C \"$GIT_PREFIX\" ls-files -v \"${@:-$PWD}\" | grep \"^[[:lower:]]\"; }; f"
 [push]
 	default = simple
