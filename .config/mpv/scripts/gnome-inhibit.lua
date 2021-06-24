@@ -4,7 +4,8 @@ Prevent the screen from blanking while a video is playing.
 
 This script is a workaround for the GNOME+Wayland issue documented in the
 [Disabling Screensaver] section of the mpv manual, and depends on
-gnome-session-inhibit to set up the inhibitors.
+gnome-session-inhibit (usually provided by the gnome-session package) to set up
+the inhibitors.
 
 
 # CAVEATS
@@ -24,12 +25,12 @@ idle timeout for a bit and prevent blanking.
 This means that inhibitors have to be installed, then removed when mpv exits.
 
 The current implementation handles this via another application, which should
-alwasy be available on GNOME+Wayland desktops (because provided by gnome-session
+always be available on GNOME+Wayland desktops (because provided by gnome-session
 itself): gnome-session-inhibit.
 
 Executing gnome-session-inhibit to handle this is not ideal because if mpv does
 not exit cleanly, gnome-session-inhibit is not necessarily killed (it can get
-ophaned, and gets adopted by the init process), leaving the inhibitors intact
+orphaned, and gets adopted by the init process), leaving the inhibitors intact
 with no easy way for the user to figure it out.
 
 Ideally this script should open a DBus session directly to handle the
@@ -45,7 +46,7 @@ This is how [other applications] do it.
 But really, the only secure way to handle this would be with a heartbeat to
 regularly reset the idle timer, i.e. what SimulateUserActivity is supposed to
 provide. Especially for a core security feature such as screen locking (cf.
-xscreensaver's author [rant][jwz]).
+xscreensaver author's [rant][jwz]).
 
 
 # TODO
