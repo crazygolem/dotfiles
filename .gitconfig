@@ -2,6 +2,7 @@
   excludesfile = ~/.gitignore
 [alias]
 	permission-reset = !git diff -p -R | grep -E \"^(diff|(old|new) mode)\" | git apply
+	aliases = "!f(){ git config --get-regexp '^alias\\.' | sed -e 's/^alias\\.//' -e 's/ / = /'; }; f"
 	graph = log --oneline --decorate --all --graph
 	sdiff = diff --ignore-space-at-eol -b -w --ignore-blank-lines
 	hide = update-index --assume-unchanged
