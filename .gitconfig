@@ -8,10 +8,9 @@
 	tracked = "!f(){ git -C \"$GIT_PREFIX\" ls-tree -r HEAD --name-only \"${@:-$PWD}\"; }; f"
 	untracked = "!f(){ git -C \"$GIT_PREFIX\" ls-files --others --exclude-standard \"$@\"; }; f"
 	ignored = "!f(){ git -C \"$GIT_PREFIX\" status --short --ignored \"$@\" | grep \"^!!\"; }; f"
-	hide = update-index --assume-unchanged
-	unhide = update-index --no-assume-unchanged
-	unhide-all = update-index --really-refresh
-	hidden = "!f(){ git -C \"$GIT_PREFIX\" ls-files -v \"${@:-$PWD}\" | grep \"^[[:lower:]]\"; }; f"
+	hide = update-index --skip-worktree
+	unhide = update-index --no-skip-worktree
+	hidden = "!f(){ git -C \"$GIT_PREFIX\" ls-files -v \"${@:-$PWD}\" | grep \"^[S[:lower:]]\"; }; f"
 [push]
 	default = simple
 [pull]
