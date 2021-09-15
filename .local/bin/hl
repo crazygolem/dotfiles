@@ -1,0 +1,59 @@
+#!/bin/bash
+
+### USAGE ######################################################################
+read -r -d '' USAGE <<'EOF'
+NAME
+    hl - highlight lines matching patterns
+
+SYNOPSIS
+    hl [OPTIONS] PATTERN [FILE...]
+    hl [OPTIONS] { -e PATTERN | -f PATTERN_FILE }... [FILE...]
+
+DESCRIPTION
+    hl searches the named input FILEs (or standard input if no files are named
+    or if a single hyphen is given as file name) for lines containing a match to
+    the given PATTERN.
+
+    All lines are output and the matches are highlighted.
+
+OPTIONS
+    See grep's manual.
+
+    Some of grep's options are not handled, don't behave sensibly or have no
+    effect:
+    * -P (perl regex mode) is not supported
+    * -v outputs nothing
+    * -A, -B, -C have no effect (the whole context is always output)
+    * --color is set to 'always' (i.e. the highlight). It can be changed if you
+      find a sense to that, but consider using cat instead.
+EOF
+################################################################################
+
+# Since hl calls grep with extra arguments, grep's usage wouldn't be shown and
+# grep would hang waiting for input.
+if ! (( $# )); then
+    >&2 echo "$USAGE"
+    exit 1
+fi
+
+# If none of the option is '-e' or '-f', then the first calling form is used and
+# a '-e' must be inserted before the PATTERN (first non-option)
+for arg in "$@"; do
+    if [ "$arg" = -e ] || [ "$arg" = -f ]; then
+        protected=1
+        break
+    fi
+done
+
+args=( "$@" )
+if ! (( protected )); then
+    for i in $(seq 0 $(( ${#args[@]} - 1 ))); do
+        # grep's first calling form accepts a single dash as PATTERN
+        if [[ "${args[i]}" != -?* ]]; then
+            args=( "${args[@]::i}" -e "${args[@]:i}" )
+            break
+        fi
+    done
+fi
+
+exec grep --color=always -e ^ "${args[@]}"
