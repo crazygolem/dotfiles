@@ -45,15 +45,14 @@ for arg in "$@"; do
     fi
 done
 
-args=( "$@" )
 if ! (( protected )); then
-    for i in $(seq 0 $(( ${#args[@]} - 1 ))); do
+    for i in $(seq 1 $#); do
         # grep's first calling form accepts a single dash as PATTERN
-        if [[ "${args[i]}" != -?* ]]; then
-            args=( "${args[@]::i}" -e "${args[@]:i}" )
+        if [[ "${@:i:1}" != -?* ]]; then
+            set -- "${@:1:i-1}" -e "${@:i}"
             break
         fi
     done
 fi
 
-exec grep --color=always -e ^ "${args[@]}"
+exec grep --color=always -e ^ "$@"
