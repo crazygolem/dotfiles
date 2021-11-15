@@ -1,0 +1,88 @@
+#!/bin/bash
+
+### USAGE ######################################################################
+read -r -d '' USAGE <<\EOF
+Print a header line, optionally with a title.
+
+SYNOPSYS
+
+    headerline [-e] [-l LEVEL] [-w WIDTH] [TITLE...]
+    headerline [-e] [-w WIDTH] -d DECORATION [TITLE...]
+    headerline [-w WIDTH] -D PREFIX SUFFIX [TITLE...]
+    headerline -h
+
+OPTIONS
+
+    -d DECORATION
+        Use DECORATION as-is as prefix, and the last character is used to fill
+        out the remainder of the line.
+
+    -D  This option takes no argument, instead the first and second positional
+        arguments PREFIX and SUFFIX are used resp. as prefix and suffix of the
+        line, using the first character of SUFFIX as padding character.
+
+    -e  The line is padded with spaces and a single decoration character is
+        printed at the end of the line.
+
+    -h  Print this help and exit.
+
+    -l LEVEL
+        Use predefined decorations.
+        LEVEL is a number from 1 to 6. Lower levels use heavier decorations.
+
+    -w WIDTH
+        Set the line length to WIDTH characters.
+EOF
+################################################################################
+
+width=80
+decorations='==='
+
+while getopts 'd:Dehl:w:' opt; do
+    case "$opt" in
+    d) decorations="$OPTARG" ;;
+    D) custom=1 ;;
+    e) empty=1 ;;
+    h) echo "$USAGE"; exit 0 ;;
+    l)
+        case "$OPTARG" in
+        1) decorations='#####' ;;
+        2) decorations='|||||' ;;
+        3) decorations='===' ;;
+        4) decorations='---' ;;
+        5) decorations='...' ;;
+        6) decorations='```' ;;
+        esac
+        ;;
+    w) width="$OPTARG" ;;
+    ?) exit 1 ;;
+    esac
+done
+
+shift $((OPTIND-1))
+
+if ! ((custom)); then
+    title="${1:+ }${*}${1:+ }"
+    pre="$decorations"
+    pad="${decorations: -1}"
+    suf=
+
+    if ((empty)); then
+        suf="$pad"
+        pad=' '
+    fi
+else
+    pre="$1"
+    pad="${2:0:1}"
+    suf="$2"
+    shift 2
+
+    title="${1:+ }${*}${1:+ }"
+fi
+
+padding="$(
+    printf '%*s' $(( width - ${#pre} - ${#title} - ${#suf} )) '' \
+    | tr ' ' "$pad"
+)"
+
+printf '%s%s%s%s\n' "$pre" "$title" "$padding" "$suf"
