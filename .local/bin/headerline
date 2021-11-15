@@ -81,7 +81,9 @@ else
 fi
 
 padding="$(
-    printf '%*s' $(( width - ${#pre} - ${#title} - ${#suf} )) '' \
+    printf '%*s' \
+        $(( (n = width - ${#pre} - ${#title} - ${#suf}) < 0 ? 0 : n )) \
+        '' \
     | tr ' ' "$pad"
 )"
 
