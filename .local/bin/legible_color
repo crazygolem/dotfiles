@@ -1,0 +1,62 @@
+#!/bin/bash
+#
+# Determines which of black or white has the highest contrast with the specified
+# color.
+#
+# This can typically be useful to select the most legible text color given a
+# background color.
+#
+# USAGE
+#
+#     legible_color RRGGBB
+#
+# Resources:
+# - https://contrastchecker.online/color-relative-luminance-calculator
+# - https://contrast-ratio.com/#black-on-#09d8bd
+
+# https://www.w3.org/TR/WCAG20/#relativeluminancedef
+relative_luminance() {
+    local color="$1"
+    local r=$((0x"${color:0:2}"))
+    local g=$((0x"${color:2:2}"))
+    local b=$((0x"${color:4:2}"))
+
+    cat <<EOF | bc -l
+define lum(color) {
+    if (color <= 0.03928) {
+        return color / 12.92
+    }
+    return e(2.4 * l((color + 0.055) / 1.055))
+}
+
+0.2126 * lum($r / 255) + 0.7152 * lum($g / 255) + 0.0722 * lum($b / 255)
+EOF
+}
+
+# https://www.w3.org/TR/WCAG20/#contrast-ratiodef
+contrast_ratio() {
+    local l1="$(relative_luminance "$1")"
+    local l2="$(relative_luminance "$2")"
+
+    cat <<EOF | bc -l
+if ($l1 > $l2) { l1 = $l1; l2 = $l2 } else { l1 = $l2; l2 = $l1 }
+(l1 + 0.05) / (l2 + 0.05)
+EOF
+}
+
+highest_ratio() {
+    local ref="$1"
+    local cand1="$2"
+    local cand2="$3"
+
+    local ratio1="$(contrast_ratio "$ref" "$cand1")"
+    local ratio2="$(contrast_ratio "$ref" "$cand2")"
+
+    if awk -v l="$ratio1" -v r="$ratio2" 'BEGIN { exit !(l > r) }'; then
+        echo 000000
+    else
+        echo ffffff
+    fi
+}
+
+highest_ratio "$1" 000000 ffffff
