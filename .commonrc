@@ -37,8 +37,13 @@ if [ -x "$(command -v nvim)" ]; then
   alias vimdiff='nvim -d'
 fi
 
+# Clear screen like real men do. (http://stackoverflow.com/a/5367075)
+# This has been working with all terminals I've used so far, unlike clear.
+# Note: M-C-l (ctrl-alt-L) available OotB since bash 5.1,
+# cf. https://unix.stackexchange.com/a/664538
+alias cls='printf \\ec'
+
 alias here='(nautilus . 1>/dev/null 2>&1 &)'
-alias cls='printf \\ec' # Clear screen like real men do. (http://stackoverflow.com/a/5367075)
 alias rst='cd ~; reset'
 alias tn='konami ping -c1 google.com'
 alias open='xdg-open'

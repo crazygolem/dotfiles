@@ -64,4 +64,10 @@ if [ $DISPLAY ]; then
   export TERM='xterm-256color'  # Makes sure VIM displays colors nicely
 fi
 
+# Clear screen like real men do
+# Inspired by https://unix.stackexchange.com/a/531178
+function zle-clear { clear; zle && zle .reset-prompt && zle -R }
+zle -N zle-clear
+bindkey '^[^L' zle-clear # ctrl-alt-L
+
 unset SDIR
