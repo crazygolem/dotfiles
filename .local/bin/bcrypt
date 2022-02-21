@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+
+import argparse
+import bcrypt
+import sys
+
+
+def cost(value):
+    cost = int(value)
+    if cost < 4 or cost > 31:
+        raise argparse.ArgumentTypeError("The cost value must be between 4 and 31.")
+    return cost
+
+
+def alg(value):
+    match value:
+        case '2a' | '$2a$':
+            return '2a'
+        case '2b' | '$2b$':
+            return '2b'
+        case _:
+            raise argparse.ArgumentTypeError("Supported algorithms are '2a' and '2b'.")
+
+
+def salt(value):
+    if invalid := set(value) - set('./ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'):
+        raise argparse.ArgumentTypeError(f"Invalid characters: {''.join(sorted(invalid))}")
+    if (length := len(value)) != 22:
+        raise argparse.ArgumentTypeError(f"Must be 22 characters long, but was {length}")
+    if not value.endswith(('.', 'O', 'e', 'u')):
+        raise argparse.ArgumentTypeError("Must end with '.', 'O' (uppercase o), 'e' or 'u'")
+    return value
+
+
+parser = argparse.ArgumentParser(description="Generate bcrypt hashes.")
+parser.add_argument('input', type=str, nargs='?',
+                    help="String to hash. If omitted, the input is read from stdin.")
+parser.add_argument('--salt', '-s', type=salt,
+                    help="A string of 22 characters (A-Z, a-z, 0-9, '.' and '/') ending with '.', 'O', 'e' or 'u'.")
+parser.add_argument('--cost', '-c', metavar='N', type=cost,
+                    default=bcrypt.gensalt.__defaults__[0],
+                    help="A number between 4 and 31, influencing the number of rounds.")
+parser.add_argument('--algorithm', '-a', metavar='ALG', type=alg,
+                    default=bcrypt.gensalt.__defaults__[1].decode('utf-8'),
+                    help="The version of the hash algorithm to use. Only '2a' and '2b' are supported.")
+parser.add_argument('--verbose', '-v', action='store_true',
+                    help="Also print the parameters by themselves after the final output.")
+
+
+if __name__ == "__main__":
+    args = parser.parse_args()
+
+    if args.salt:
+        salt = f'${args.algorithm}${args.cost:02}${args.salt}'.encode('utf-8')
+    else:
+        salt = bcrypt.gensalt(rounds=args.cost, prefix=args.algorithm.encode('utf-8'))
+
+    if args.input is not None:
+        input = args.input.encode('utf-8')
+    else:
+        input = sys.stdin.read().encode('utf-8')
+
+    # The bcrypt module has this limit (on my system?)
+    # https://security.stackexchange.com/a/39851
+    if (length := len(input)) > 72:
+        print(f"WARNING: Input has {length} bytes, truncated to 72 bytes.", file=sys.stderr)
+
+    hash = bcrypt.hashpw(input, salt)
+
+    if args.verbose:
+        print(hash.decode('utf-8'), salt.decode('utf-8'))
+    else:
+        print(hash.decode('utf-8'))
