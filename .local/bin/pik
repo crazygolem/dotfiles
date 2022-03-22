@@ -1,0 +1,53 @@
+#!/bin/sh
+#
+# Color picker for Wayland + GNOME
+#
+
+# Lets the user pick a color using a special cursor, and return the result in a
+# weird type serialization, see [1].
+#
+# Found on [2]. The methods described in the other responses don't work (notably
+# slurp doesn't work with GNOME).
+#
+# [1]: https://gitlab.gnome.org/GNOME/gnome-shell/-/blob/main/data/dbus-interfaces/org.gnome.Shell.Screenshot.xml
+# [2]: https://unix.stackexchange.com/a/665604
+pick() {
+    gdbus call --session \
+        --dest org.gnome.Shell.Screenshot \
+        --object-path /org/gnome/Shell/Screenshot \
+        --method org.gnome.Shell.Screenshot.PickColor
+}
+
+# Parses PickColor's 'a{sv}' output. See [1] for a description of the format.
+#
+# Mostly I just looked at the output of `pick` and went from there. There's no
+# guarantee that the serialization will remain exactly the same, and this
+# function will break if there is too much deviation.
+#
+# [1]: https://www.freedesktop.org/software/gstreamer-sdk/data/docs/2012.5/glib/gvariant-text.html
+parse() {
+    # Example: ({'color': <(0.43529411764705883, 0.0, 1.0)>},)
+    sed -nE '/color/ s/.*<\(([0-9.]+), ([0-9.]+), ([0-9.]+)\)>.*/\1 \2 \3/p'
+}
+
+# Outputs a valid single-pixel ppm image [1] to the surprise of everyone.
+#
+# [1]: https://www.commandlinux.com/man-page/man5/ppm.5.html
+ppm() {
+    echo P3 1 1 255
+
+    # The output of PickColor is normalized, we want it denormalized.
+    awk -v depth=255 '{ for(i = 1; i <= NF; i++) print int($i * depth) }'
+}
+
+# Gives the color value of pixels. Also comes from [1].
+# It's called magic because it looks like I'm chanting an obscure spell I don't
+# understand. Also imagemagick.
+#
+# [1]: https://unix.stackexchange.com/q/320070
+magic() {
+    convert - -format '%[pixel:p{0,0}]' txt:-
+}
+
+# Some stderr redirs to avoid stupid messages when cancelling with [esc]
+pick 2>/dev/null | parse | ppm | magic 2>/dev/null
