@@ -1,0 +1,19 @@
+#!/bin/sh
+
+if [ $# -eq 0 ] || [ "$1" = -h ]; then
+    >&2 cat <<-EOF
+		$(basename "$0") - show the content of scripts
+
+		    Usage: $(basename "$0") NAME
+
+	EOF
+    exit
+fi
+
+path="$(command -v "$1")" || {
+    >&2 echo "$(basename "$0"): $1: not found"
+    exit 1
+}
+
+bat --paging never --color always -- "$path"
+file --brief --dereference -- "$path"
