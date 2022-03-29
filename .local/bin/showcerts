@@ -12,17 +12,22 @@ OPTIONS
 
     -h  Show this help and exit
 
+    -s PROTOCOL
+        Send the PROTOCOL-specific message(s) to switch to TLS on an otherwise
+        unsecured port (aka. STARTTLS).
+
     -v  Verbose mode; the PEM certificates are output as well
 EOF
 ###############################################################################
 
 [ "$(getopt -T >/dev/null 2>&1; echo $?)" = 4 ] || { >&2 echo 'WARNING: Missing recent GNU getopt'; }
 
-OPTS=$(getopt -o hv --name "$0" -- "$@") || exit 1
+OPTS=$(getopt -o hs:v --name "$0" -- "$@") || exit 1
 eval set -- "$OPTS"
 while :; do
   case "$1" in
     -h) echo "$USAGE"; exit ;;
+    -s) args+=(-starttls "$2"); shift 2 ;;
     -v) SHOWPEM=1; shift ;;
     --) shift; break ;;
     *)  >&2 echo "Internal error, unhandled option: $1"; exit 1 ;;
@@ -32,18 +37,24 @@ done
 DOMAIN="$(echo "$1" | cut -d: -f1)"
 PORT="$(echo "$1" | cut -s -d: -f2)"
 
-openssl s_client -showcerts -connect "${DOMAIN}:${PORT:-443}" -servername "$DOMAIN" </dev/null 2>/dev/null \
-  | sed -n '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' \
-  | sed '/-END CERTIFICATE-/{$s/$/\x0/;$n;N;s/\n/\x0/}' | sed '$a\' | head -c -1 \
-  | while IFS= read -r -d '' pem; do
-    (( SHOWPEM )) && echo "$pem"
-    {
-      echo "$pem" | openssl x509 -noout -subject
-      echo "$pem" | openssl x509 -noout -ext subjectAltName | grep -v '^\S' | sed 's/\s*/subjectAltName=/'
-      echo "$pem" | openssl x509 -noout -issuer -dates -serial
-      for dgst in md5 sha1 sha256; do
-        echo "$pem" | openssl x509 -noout -fingerprint -"$dgst"
-      done
-    } | sed -e 's/=/\t/' | column -ts $'\t'
-    echo
-  done
+args=(
+  -connect "${DOMAIN}:${PORT:-443}"
+  -servername "$DOMAIN"
+  "${args[@]}"
+)
+
+openssl s_client -showcerts "${args[@]}" </dev/null 2>/dev/null \
+| sed -n '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' \
+| sed '/-END CERTIFICATE-/{$s/$/\x0/;$n;N;s/\n/\x0/}' | sed '$a\' | head -c -1 \
+| while IFS= read -r -d '' pem; do
+  (( SHOWPEM )) && echo "$pem"
+  {
+    echo "$pem" | openssl x509 -noout -subject
+    echo "$pem" | openssl x509 -noout -ext subjectAltName | grep -v '^\S' | sed 's/\s*/subjectAltName=/'
+    echo "$pem" | openssl x509 -noout -issuer -dates -serial
+    for dgst in md5 sha1 sha256; do
+      echo "$pem" | openssl x509 -noout -fingerprint -"$dgst"
+    done
+  } | sed -e 's/=/\t/' | column -ts $'\t'
+  echo
+done
