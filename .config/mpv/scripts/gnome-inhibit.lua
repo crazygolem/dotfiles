@@ -132,7 +132,7 @@ mp.observe_property('stop-screensaver', 'bool', function(_, enable)
         mp.observe_property('pause', 'bool', handle_inhibit)
         msg.debug('inhibit handling on')
     else
-        mp.unobserve_property('pause', 'bool', handle_inhibit)
+        mp.unobserve_property(handle_inhibit)
         msg.debug('inhibit handling off')
 
         if cookie then
