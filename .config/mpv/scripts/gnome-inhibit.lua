@@ -49,6 +49,19 @@ provide. Especially for a core security feature such as screen locking (cf.
 xscreensaver author's [rant][jwz]).
 
 
+# Debugging
+
+Use mpv's `--msg-level` CLI option to increase the log level for messages from
+this script, e.g.:
+
+    mpv --msg-level=gnome_inhibit=debug --no-msg-color ...
+
+Use `gnome-session-inhibit -l` to list the active inhibitors. When this script
+is enabled and a video is playing, you should see
+
+    mpv: video-playing (idle)
+
+
 # TODO
 
 - Do not inhibit for audio-only playback, only for video
