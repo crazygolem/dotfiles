@@ -12,6 +12,9 @@ OPTIONS
 
     -h  Show this help and exit
 
+    -f  Get certificates from stdin or files instead of by connecting to a
+        server.
+
     -s PROTOCOL
         Send the PROTOCOL-specific message(s) to switch to TLS on an otherwise
         unsecured port (aka. STARTTLS).
@@ -22,11 +25,12 @@ EOF
 
 [ "$(getopt -T >/dev/null 2>&1; echo $?)" = 4 ] || { >&2 echo 'WARNING: Missing recent GNU getopt'; }
 
-OPTS=$(getopt -o hs:v --name "$0" -- "$@") || exit 1
+OPTS=$(getopt -o hfs:v --name "$0" -- "$@") || exit 1
 eval set -- "$OPTS"
 while :; do
   case "$1" in
     -h) echo "$USAGE"; exit ;;
+    -f) FROMFILES=1; shift ;;
     -s) args+=(-starttls "$2"); shift 2 ;;
     -v) SHOWPEM=1; shift ;;
     --) shift; break ;;
@@ -34,16 +38,21 @@ while :; do
   esac
 done
 
-DOMAIN="$(echo "$1" | cut -d: -f1)"
-PORT="$(echo "$1" | cut -s -d: -f2)"
 
-args=(
-  -connect "${DOMAIN}:${PORT:-443}"
-  -servername "$DOMAIN"
-  "${args[@]}"
-)
+if (( FROMFILES )); then
+  cat "$@"
+else
+  DOMAIN="$(echo "$1" | cut -d: -f1)"
+  PORT="$(echo "$1" | cut -s -d: -f2)"
 
-openssl s_client -showcerts "${args[@]}" </dev/null 2>/dev/null \
+  args=(
+    -connect "${DOMAIN}:${PORT:-443}"
+    -servername "$DOMAIN"
+    "${args[@]}"
+  )
+
+  openssl s_client -showcerts "${args[@]}" </dev/null 2>/dev/null
+fi \
 | sed -n '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' \
 | sed '/-END CERTIFICATE-/{$s/$/\x0/;$n;N;s/\n/\x0/}' | sed '$a\' | head -c -1 \
 | while IFS= read -r -d '' pem; do
