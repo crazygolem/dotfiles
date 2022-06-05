@@ -85,23 +85,46 @@ is enabled and a video is playing, you should see
 local mp = require 'mp'
 local msg = require 'mp.msg'
 
-local cookie
+local cookie        -- Opaque token for the async gnome-session-inhibit command
+local state = {}    -- Events cache to allow complex trigger conditions
 
-local function handle_inhibit(_, paused)
-    if paused and cookie then
-        mp.abort_async_command(cookie)
-        cookie = nil
-        msg.debug('inhibit off')
-    elseif not paused and not cookie then
+-- Update the state and check if it changed. The third parameter allows to
+-- compute more complex conditions over the state.
+local function update_state(key, val, fn)
+    fn = fn or function(state) return state[key] end
+    local old = fn(state)
+    state[key] = val
+    local new = fn(state)
+    msg.debug('State update:', key, '=', val, '/ fn:', old, '->', new)
+    return new ~= old, new
+end
+
+-- "Paused" for the purpose of inhibitors is computed from several mpv
+-- properties, because when becoming idle, mpv doesn't fire the 'pause' event.
+local function is_paused()
+    -- When uninitialized, we consider mpv's state to be paused, i.e.
+    -- effectively nil is equivalent to true in this case.
+    return state['pause'] ~= false or state['idle-active'] ~= false
+end
+
+-- Whether mpv is playing a video
+local function is_video()
+    -- nil is equivalent to false, forcing a boolean ensures that initializing
+    -- to false isn't considered a change.
+    return not not state['vo-configured']
+end
+
+local function install_inhibitor(evt, video)
+    if not cookie then
         cookie = mp.command_native_async(
             {
                 name = 'subprocess',
                 args = {
                     'gnome-session-inhibit',
                     '--inhibit-only',
-                    '--inhibit', 'idle',
+                    '--inhibit', (video and 'idle' or 'suspend'),
                     '--app-id', 'mpv',
-                    '--reason', 'video-playing',
+                    '--reason', (video and 'video' or 'audio') .. ' playing',
                 },
 
                 -- `playback_only = true` does not kill the command when
@@ -123,22 +146,66 @@ local function handle_inhibit(_, paused)
             function() end
         )
 
-        msg.debug('inhibit on')
+        msg.verbose('inhibit on (' .. evt .. ')')
     end
 end
 
-mp.observe_property('stop-screensaver', 'bool', function(_, enable)
-    if enable then
-        mp.observe_property('pause', 'bool', handle_inhibit)
-        msg.debug('inhibit handling on')
-    else
-        mp.unobserve_property(handle_inhibit)
-        msg.debug('inhibit handling off')
+local function remove_inhibitor(evt)
+    if cookie then
+        -- FIXME: If abort_async_command is executed too fast after
+        -- command_native_async, it seems sometimes it fails to abort the
+        -- command. This often happen at the very start when initializing the
+        -- script, and when mpv fires a bunch of property-change events in quick
+        -- succession, which causes inhibitors to be installed and removed too
+        -- fast.
+        os.execute('sleep 0.1')
 
-        if cookie then
-            mp.abort_async_command(cookie)
-            cookie = nil
-            msg.debug('inhibit off')
-        end
+        mp.abort_async_command(cookie)
+        cookie = nil
+        msg.verbose('inhibit off (' .. evt .. ')')
     end
-end)
+end
+
+
+-- Install or remove the inhibitor depending on the player's state
+local function event_pause(evt, val)
+    local changed, paused = update_state(evt, val, is_paused)
+    if not changed then return end
+
+    if paused then
+        remove_inhibitor(evt)
+    else
+        install_inhibitor(evt, is_video())
+    end
+end
+
+-- Switch the type of inhibition depending on whether mpv is playing video or
+-- only audio
+local function event_voconfigured(evt, val)
+    local changed, video = update_state(evt, val, is_video)
+    if not changed then return end
+
+    -- We only need to refresh the inhibitor if it's already installed,
+    -- otherwise we can just wait for the next installation.
+    if not is_paused() then
+        remove_inhibitor(evt)
+        install_inhibitor(evt, video)
+    end
+end
+
+-- Switch the whole handling of inhibition
+local function event_inhibit(_, enabled)
+    if enabled then
+        mp.observe_property('pause', 'bool', event_pause)
+        mp.observe_property('idle-active', 'bool', event_pause)
+        mp.observe_property('vo-configured', 'bool', event_voconfigured)
+        msg.verbose('inhibit handling on')
+    else
+        mp.unobserve_property(event_pause)
+        mp.unobserve_property(event_voconfigured)
+        remove_inhibitor()
+        msg.verbose('inhibit handling off')
+    end
+end
+
+mp.observe_property('stop-screensaver', 'bool', event_inhibit)
