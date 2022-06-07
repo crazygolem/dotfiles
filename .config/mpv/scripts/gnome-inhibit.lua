@@ -125,28 +125,23 @@ is enabled and a video is playing, you should see
 
 
 local mp = require 'mp'
-local msg = require 'mp.msg'
-
-local cookie        -- Opaque token for the async gnome-session-inhibit command
-local state = {}    -- Events cache to allow complex trigger conditions
+local log = mp.msg
 
 
 -- -----------------------------------------------------------------------------
 -- Inhibitor handlers
 -- -----------------------------------------------------------------------------
 
-local function install_inhibitor(evt, video)
-    if cookie then return end
-
-    cookie = mp.command_native_async(
+local function install_inhibitor(level, reason)
+    return mp.command_native_async(
         {
             name = 'subprocess',
             args = {
                 'gnome-session-inhibit',
                 '--inhibit-only',
-                '--inhibit', (video and 'idle' or 'suspend'),
+                '--inhibit', level,
                 '--app-id', 'mpv',
-                '--reason', (video and 'video' or 'audio') .. ' playing',
+                '--reason', reason,
             },
 
             -- `playback_only = true` does not kill the command when playback is
@@ -167,88 +162,104 @@ local function install_inhibitor(evt, video)
         -- don't provide a function: attempt to call local 'cb' (a nil value)
         function() end
     )
-
-    msg.verbose('inhibit on (' .. evt .. ')')
 end
 
-local function remove_inhibitor(evt)
+local function remove_inhibitor(cookie)
     if not cookie then return end
-
     mp.abort_async_command(cookie)
-    cookie = nil
-    msg.verbose('inhibit off (' .. evt .. ')')
 end
 
 
 -- -----------------------------------------------------------------------------
--- State management
+-- Teh Brainz
 -- -----------------------------------------------------------------------------
 
--- Update the state and check if it changed. The third parameter allows to
--- compute more complex conditions over the state.
-local function update_state(key, val, fn)
-    fn = fn or function(state) return state[key] end
+local state = {
 
-    local old = fn(state)
-    state[key] = val
-    local new = fn(state)
+    -- Opaque token for the async gnome-session-inhibit token
+    cookie = nil,
 
-    msg.debug('state update:', key, '=', val, '/ fn:', old, '->', new)
+    -- Events cache to allow complex trigger conditions
+    events = {},
 
-    return new ~= old, new
-end
+    -- A list of rules with associated action that gets executed when the result
+    -- of the rule changes due to an event fired by mpv. The result of the rule
+    -- is passed to the action so it doesn't have to compute it again.
+    triggers = {
 
--- Whether to enable inhibition is computed from several mpv properties.
--- Note: mpv's --keep-open option triggers a 'pause' event at the end of the
--- file, but --idle doesn't, and instead triggers an 'idle-active' event.
-local function is_enabled()
-    if not state['plugin-initialized'] then return false end
-    if not state['stop-screensaver'] then return false end
-    return not state['pause'] and not state['idle-active']
-end
+        state = {
+            rule = function(events)
+                if not events['plugin-initialized'] then return false end
+                if not events['stop-screensaver'] then return false end
 
--- Whether mpv is playing a video. Note that when a video is started, this still
--- briefly returns false because mpv sends the corresponding event only after a
--- little while when the relevant subsystems have initialized.
-local function is_video()
-    return state['vo-configured']
-end
+                -- mpv's --keep-open option triggers a 'pause' event at the end
+                -- of the file, but --idle doesn't, and instead triggers an
+                -- 'idle-active' event.
+                return not events['pause'] and not events['idle-active']
+            end,
 
--- -----------------------------------------------------------------------------
--- Event handlers
--- -----------------------------------------------------------------------------
+            action = function(state, evt, enabled)
+                if enabled then
+                    local level = state.triggers.level.rule(state.events)
+                    local reason = (state.events['vo-configured'] and 'video' or 'audio')..' playing'
+                    state.cookie = install_inhibitor(level, reason)
+                    log.verbose('inhibit on ('..evt..')')
+                else
+                    remove_inhibitor(state.cookie)
+                    log.verbose('inhibit off ('..evt..')')
+                end
+            end,
+        },
 
--- Install or remove the inhibitor depending on the player's state
-local function event_enable(evt, val)
-    local changed, enabled = update_state(evt, val, is_enabled)
-    if not changed then return end
+        level = {
+            rule = function(events)
+                if not events['plugin-initialized'] then return end
 
-    if enabled then
-        install_inhibitor(evt, is_video())
-    else
-        remove_inhibitor(evt)
+                -- If mpv is playing a video, we prevent the screen from
+                -- blanking. If it is only playing audio, the screen can blank
+                -- and we only prevent the computer from going to sleep.
+                -- Note: when a video is started, mpv fires vo-configured with
+                -- false, and then shortly after again with true when the
+                -- relevant subsystems get initialized.
+                return events['vo-configured'] and 'suspend:idle' or 'suspend'
+            end,
+
+            action = function(state, evt, level)
+                local reason = (state.events['vo-configured'] and 'video' or 'audio')..' playing'
+
+                -- We only need to refresh the inhibitor if it's already
+                -- installed, otherwise we can just wait for the next
+                -- installation.
+                if state.triggers.state.rule(state.events) then
+                    remove_inhibitor(state.cookie)
+                    state.cookie = install_inhibitor(level, reason)
+                    log.verbose('inhibit upd ('..evt..')')
+                end
+            end,
+        },
+    },
+}
+
+function state.update(self, evt, val)
+    local snap = {}
+    for name, trigger in pairs(self.triggers) do
+        snap[name] = {}
+        snap[name].old = trigger.rule(self.events)
     end
-end
 
--- Switch the type of inhibition depending on whether mpv is playing video or
--- only audio
-local function event_video(evt, val)
-    local changed, video = update_state(evt, val, is_video)
-    if not changed then return end
+    self.events[evt] = val
 
-    -- We only need to refresh the inhibitor if it's already installed,
-    -- otherwise we can just wait for the next installation.
-    if is_enabled() then
-        remove_inhibitor(evt)
-        install_inhibitor(evt, video)
+    for name, trigger in pairs(self.triggers) do
+        snap[name].new = trigger.rule(self.events)
+        snap[name].changed = snap[name].new ~= snap[name].old
     end
-end
 
--- Handle the dummy 'plugin-initialized' event, indicating that all the other
--- events should have been fired once already to initialize the state.
-local function event_ready(evt)
-    mp.unobserve_property(event_ready)
-    event_enable(evt, true)
+    for name, status in pairs(snap) do
+        log.debug('state update:', evt, '=', val, '/', name, ':', status.old, '->', status.new)
+        if status.changed then
+            self.triggers[name].action(self, evt..':'..name, status.new)
+        end
+    end
 end
 
 
@@ -256,15 +267,30 @@ end
 -- Wire everything together
 -- -----------------------------------------------------------------------------
 
-mp.observe_property('stop-screensaver', 'bool', event_enable)
-mp.observe_property('pause', 'bool', event_enable)
-mp.observe_property('idle-active', 'bool', event_enable)
-mp.observe_property('vo-configured', 'bool', event_video)
+-- I like my instance method on state, leave me alone ☹
+local function event_update(evt, val)
+    state:update(evt, val)
+end
+
+-- Handle the dummy 'plugin-initialized' event, indicating that all the other
+-- events should have been fired once already and the state is initialized.
+local function event_ready(evt)
+    -- The dummy event gets fired regularly for no apparent reason. It wouldn't
+    -- harm to keep the observer around, but I prefer my debug logs clean.
+    mp.unobserve_property(event_ready)
+    state:update(evt, true)
+end
+
+
+mp.observe_property('stop-screensaver', 'bool', event_update)
+mp.observe_property('pause', 'bool', event_update)
+mp.observe_property('idle-active', 'bool', event_update)
+mp.observe_property('vo-configured', 'bool', event_update)
 
 -- Must be registered after all the other property observers, cf. work notes
 mp.observe_property('plugin-initialized', nil, event_ready)
 
-msg.info(
+log.info(
     'GNOME+Wayland idle inhibit workaround enabled.',
     'You can ignore the warning from the [vo/gpu/wayland] component.'
 )
