@@ -106,6 +106,53 @@ able to easily ensure that the state has been fully initialized before checking
 the trigger conditions so I'm keeping it around.
 
 
+## Orphaned inhibitors
+
+When mpv does not terminate gracefully, e.g. when killed with `kill -9 <pid>`,
+installed inhibitor don't get removed, which can be difficult to figure out for
+the user.
+
+One technique that solves the issue is to use gnome-session-inhibit with a
+command that is able to check whether mpv is running, and exit when it isn't
+anymore.
+
+tail has a --pid option that can do just that, and it just takes removing in
+mp.command_native_async the '--inhibit-only' argument and specifying the
+subcommand
+
+    'tail', '--pid', tostring(utils.getpid()), '-f', '/dev/null'
+
+Alternatively, something similar can be achieved by using a shell command to
+poll on the result of
+
+    kill -0 <mpv-pid>
+
+and exit if it fails.
+
+But if was that easy, you wouldn't be reading that. So what's the problem?
+
+It turns out that when gnome-session-inhibit gets killed, including by mpv when
+requested with mp.abort_async_command, gnome-session-inhibit doesn't kill its
+child process, and becomes "<defunct>". So now the problem just propagated to
+tail, and even worse, this makes mpv unable to gracefully exit anymore: it
+hangs waiting for gnome-session-inhibit to exit, which in turn is waiting for
+tail to exit, which won't happen until mpv exits because of the --pid option.
+
+This cure is unfortunately worse than the desease.
+
+Another attempt was made using an extra check to determine whether the
+subcommand's parent process (supposedly gnome-session-inhibit) became defunct:
+
+    ppid=$PPID
+    ps -o stat= --pid $ppid | grep Z
+
+Note that the initial PPID has to be stored into another variable because PPID
+is automatically updated when the process gets orphaned.
+
+The issue is that mpv still hangs on normal shutdowns, and the polling interval
+has to be short enough to not become annoying. Damn :(
+
+
 ## Debugging
 
 Use mpv's `--msg-level` CLI option to increase the log level for messages from
@@ -179,10 +226,10 @@ function inhibitor.new()
                 name = 'subprocess',
                 args = {
                     'gnome-session-inhibit',
-                    '--inhibit-only',
                     '--inhibit', level,
                     '--app-id', 'mpv',
                     '--reason', reason,
+                    '--inhibit-only',
                 },
 
                 -- `playback_only = true` does not kill the command when
