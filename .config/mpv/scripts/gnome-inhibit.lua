@@ -124,8 +124,6 @@ is enabled and a video is playing, you should see
 - Allow configuring
   - Whether to inhibit at all when only audio is playing
   - Whether to inhibit idle (screen blanking) when only audio is playing
-- Disable inhibition when only audio is playing and mpv gets muted
-- Disable inhibition when video is playing and the player is not visible
 - Fix inhibitors not removed when mpv does not terminate gracefully, e.g. with
   `kill -9 <pid>`, either by having a wrapper around gnome-session-inhibit
   checking the parent PID (see https://stackoverflow.com/a/2035683), or by
@@ -237,6 +235,11 @@ local state = {
                 if not events['plugin-initialized'] then return false end
                 if not events['stop-screensaver'] then return false end
 
+                if events['mute'] and not events['vo-configured'] then return false end
+                -- Might not work reliably depending on the VO and windowing
+                -- system (cf. mpv manual)
+                if events['window-minimized'] and events['vo-configured'] then return false end
+
                 -- mpv's --keep-open option triggers a 'pause' event at the end
                 -- of the file, but --idle doesn't, and instead triggers an
                 -- 'idle-active' event.
@@ -332,6 +335,8 @@ mp.observe_property('stop-screensaver', 'bool', event_update)
 mp.observe_property('pause', 'bool', event_update)
 mp.observe_property('idle-active', 'bool', event_update)
 mp.observe_property('vo-configured', 'bool', event_update)
+mp.observe_property('window-minimized', 'bool', event_update)
+mp.observe_property('mute', 'bool', event_update)
 
 -- Must be registered after all the other property observers, cf. work notes
 mp.observe_property('plugin-initialized', nil, event_ready)
