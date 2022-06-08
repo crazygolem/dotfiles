@@ -53,17 +53,17 @@ xscreensaver author's [rant][jwz]).
 
 ## Detecting readiness
 
-If remove_inhibitor is called too quickly after install_inhibitor, mpv sometimes
+If inhibitor:remove is called too quickly after inhibitor:install, mpv sometimes
 fails to remove the inhibitor. With the current implementation (where a single
 "cookie" is used) it can lead to two inhibitors being installed at once, and the
 first inhibitor only gets removed when closing mpv.
 
-This cannot be reproduced by just calling {install,remove}_inhibitor one after
-the other in code, but registering them on separate events triggers the issue,
-e.g.:
+This cannot be reproduced by just calling inhibitor:{install,remove} one after
+the other in code, but registering them on separate events sometimes triggers
+the issue, something like:
 
-    mp.observe_property('foo', nil, install_inhibitor)
-    mp.observe_property('bar', nil, remove_inhibitor)
+    mp.observe_property('foo', nil, inhibitor:install)
+    mp.observe_property('bar', nil, inhibitor:remove)
 
 In particular, this happens during the script's "initialization": when
 registering a property observer with mp.observe_property, the function is always
@@ -76,18 +76,34 @@ I presume that there something funny going on when mp.command_native_async and
 mp.abort_async_command get called in the same "tick" of the event loop, maybe
 the cookie isn't properly registered and aborting then fails.
 
-Anyway, since this problem seems to only occur during initialization, preventing
-the inhibitor from being installed until the initialization is complete solves
-the issue.
+Anyway, at first this problem seemed to only occur during initialization, and I
+attempted to solve the issue by preventing the inhibitor from being installed
+until the initialization is complete.
 
 In order to delay the inhibitor until then, an observer is registered on a dummy
 property 'plugin-initialized', and the registration is done after all the other
 observers.
 
-Technically it the documentation doesn't say that registration order is
-respected for property observers (though it is mentioned that the registration
-order is respected for event observers registered on the same event) but it
-seems to work reliably.
+Technically the documentation doesn't say that registration order is respected
+for property observers (though it is mentioned that it is for event observers
+registered on the same event) but it seems to work reliably.
+
+However it didn't work anymore after a rewrite of the inhibitor handler, as a
+single mpv event could trigger again several internal triggers in a row. I might
+fix this later, but the underlying issue is still that mp.abort_async_command
+doesn't work as advertised and I wanted to have that fixed in isolation.
+
+The next attempt to solve the issue was to add a small delay before calling
+mp.abort_async_command. It seemed to work reliably with
+
+    os.execute('sleep 0.01')
+
+but I didn't like calling an extra external command, so instead I opted for
+using an mpv timeout that calls the abort function.
+
+This could have replaced the first "dummy event" fix, but I actually like being
+able to easily ensure that the state has been fully initialized before checking
+the trigger conditions so I'm keeping it around.
 
 
 ## Debugging
@@ -108,6 +124,8 @@ is enabled and a video is playing, you should see
 - Allow configuring
   - Whether to inhibit at all when only audio is playing
   - Whether to inhibit idle (screen blanking) when only audio is playing
+- Disable inhibition when only audio is playing and mpv gets muted
+- Disable inhibition when video is playing and the player is not visible
 - Fix inhibitors not removed when mpv does not terminate gracefully, e.g. with
   `kill -9 <pid>`, either by having a wrapper around gnome-session-inhibit
   checking the parent PID (see https://stackoverflow.com/a/2035683), or by
@@ -129,44 +147,71 @@ local log = mp.msg
 
 
 -- -----------------------------------------------------------------------------
--- Inhibitor handlers
+-- The hands
 -- -----------------------------------------------------------------------------
 
-local function install_inhibitor(level, reason)
-    return mp.command_native_async(
-        {
-            name = 'subprocess',
-            args = {
-                'gnome-session-inhibit',
-                '--inhibit-only',
-                '--inhibit', level,
-                '--app-id', 'mpv',
-                '--reason', reason,
+local inhibitor = {}
+
+function inhibitor.new()
+    -- Opaque token for the async gnome-session-inhibit token
+    local cookie = nil
+
+    local handle = {}
+
+    function handle.remove(self)
+        if not cookie then return end
+
+        -- The abort call can actually silently fail to abort the command under
+        -- some unknown conditions, and delaying it a tiny bit seems to solve
+        -- the issue, cf. work notes.
+        -- This means that several inhibitors can be installed at the same time
+        -- for a fraction of a second, hopefully nobody will notice ;) ;)
+        local c = cookie
+        mp.add_timeout(0.01, function()
+            mp.abort_async_command(c)
+        end)
+        cookie = nil
+    end
+
+    function handle.install(self, level, reason)
+        if cookie then return end
+
+        cookie = mp.command_native_async(
+            {
+                name = 'subprocess',
+                args = {
+                    'gnome-session-inhibit',
+                    '--inhibit-only',
+                    '--inhibit', level,
+                    '--app-id', 'mpv',
+                    '--reason', reason,
+                },
+
+                -- `playback_only = true` does not kill the command when
+                -- playback is paused (i.e. "pause" is still "playback == true")
+                -- but also kills it immediately the first time. So we need to
+                -- handle the paused state ourselves.
+                playback_only = false,
+
+                -- If not captured, mpv will just forward everything to stdout
+                -- and stderr. Setting capture_stdXXX with capture_size = 0 will
+                -- ensure that the command's output is discarded.
+                capture_stdout = true,
+                capture_stderr = true,
+                capture_size = 0,
             },
 
-            -- `playback_only = true` does not kill the command when playback is
-            -- paused (i.e. "pause" is still "playback == true") but also kills
-            -- it immediately the first time. So we need to handle the paused
-            -- state ourselves.
-            playback_only = false,
+            -- The cookie could be cleaned up here, but it might prevent new
+            -- handlers from being installed under some race conditions. It's
+            -- easier to clean it in the remove function than to do it right.
+            -- Note: This parameter of command_native_async should be optional
+            -- according to the doc, but I get an error if I don't provide a
+            -- function: attempt to call local 'cb' (a nil value)
+            function() end
+        )
+    end
 
-            -- If not captured, mpv will just forward everything to stdout and
-            -- stderr. Setting capture_stdXXX with capture_size = 0 will ensure
-            -- that the command's output is discarded.
-            capture_stdout = true,
-            capture_stderr = true,
-            capture_size = 0,
-        },
-
-        -- Should be optional according to the doc, but I get an error if I
-        -- don't provide a function: attempt to call local 'cb' (a nil value)
-        function() end
-    )
-end
-
-local function remove_inhibitor(cookie)
-    if not cookie then return end
-    mp.abort_async_command(cookie)
+    return handle
 end
 
 
@@ -176,10 +221,10 @@ end
 
 local state = {
 
-    -- Opaque token for the async gnome-session-inhibit token
-    cookie = nil,
+    -- We want at most a single inhibitor to be installed for each mpv instance.
+    inhibitor = inhibitor.new(),
 
-    -- Events cache to allow complex trigger conditions
+    -- Events cache to allow complex trigger conditions. No, not that complex...
     events = {},
 
     -- A list of rules with associated action that gets executed when the result
@@ -202,10 +247,10 @@ local state = {
                 if enabled then
                     local level = state.triggers.level.rule(state.events)
                     local reason = (state.events['vo-configured'] and 'video' or 'audio')..' playing'
-                    state.cookie = install_inhibitor(level, reason)
+                    state.inhibitor:install(level, reason)
                     log.verbose('inhibit on ('..evt..')')
                 else
-                    remove_inhibitor(state.cookie)
+                    state.inhibitor:remove()
                     log.verbose('inhibit off ('..evt..')')
                 end
             end,
@@ -231,8 +276,8 @@ local state = {
                 -- installed, otherwise we can just wait for the next
                 -- installation.
                 if state.triggers.state.rule(state.events) then
-                    remove_inhibitor(state.cookie)
-                    state.cookie = install_inhibitor(level, reason)
+                    state.inhibitor:remove()
+                    state.inhibitor:install(level, reason)
                     log.verbose('inhibit upd ('..evt..')')
                 end
             end,
@@ -240,6 +285,7 @@ local state = {
     },
 }
 
+-- Update the internal state from an mpv event and check the triggers.
 function state.update(self, evt, val)
     local snap = {}
     for name, trigger in pairs(self.triggers) do
