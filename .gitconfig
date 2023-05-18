@@ -30,4 +30,4 @@
 	textconv = 7z -so e
 	binary = true
 [init]
-	defaultBranch = master
+	defaultBranch = main
