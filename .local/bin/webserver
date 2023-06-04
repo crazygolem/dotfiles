@@ -77,9 +77,7 @@ localhost:$IPORT
 root * /srv
 file_server browse
 
-log {
-    format single_field common_log
-}
+log
 
 handle_errors {
     handle {
@@ -89,8 +87,8 @@ handle_errors {
 EOF
 
 
-if (( UPDATE )) || ! podman image exists caddy; then
-    podman pull caddy
+if (( UPDATE )) || ! podman image exists docker.io/caddy; then
+    podman pull docker.io/caddy
 fi
 
 echo "Serving on ${BIND}:${EPORT}..."
@@ -98,4 +96,4 @@ podman run --rm -it \
     --publish "$BIND":"$EPORT":"$IPORT" \
     --volume "$CADDYFILE":/etc/caddy/Caddyfile \
     --volume "$ROOT":/srv:ro \
-    caddy
+    docker.io/caddy
