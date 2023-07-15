@@ -1,7 +1,7 @@
 """ Crazygolem's vimrc """""""""""""""""""""""""""""""""""""""""""""""""""""""
 "
-" This vimrc file provides graceful degradation if Vundle or some bundles are
-" not installed. Restricted mode provides an enhanced status line, a lot of
+" This vimrc file provides graceful degradation when some plugins are not
+" installed. Restricted mode provides an enhanced status line, a lot of
 " usability and mappings to basic functions.
 "
 " Corollary: You can copy this file in root's home directory to have a
@@ -9,77 +9,95 @@
 " ~/.vim/colors otherwise you won't have nice colors)
 "
 " TODO: Gracefully degrade mappings to bundle functions
-" TODO: Update Vundle
 "
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
-set nocompatible               " be iMproved
+" `:set nocp` has many side effects, so this should be done only when
+" 'compatible' is set.
+if &compatible
+  set nocompatible
+endif
 
 
-"""""" Vundle """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+"""""" Plugins """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
-function! Vundleize()
-  " Brief help
-  " :BundleList          - list configured bundles
-  " :BundleInstall(!)    - install(update) bundles
-  " :BundleSearch(!) foo - search(or refresh cache first) for foo
-  " :BundleClean(!)      - confirm(or auto-approve) removal of unused bundles
-  "
-  " see :h vundle for more details or wiki for FAQ
-  " NOTE: comments after Bundle command are not allowed..
+" Plugins are loaded by vim's built-in plugin manager; this requires vim 8+.
+" Minpac is used to bootstrap and update plugins easily.
+"
+" Even if minpac is not installed, we still want to configure the other plugins,
+" as they might have been installed manually. And since I like grouping the
+" plugins' registration with their configuration, the "load minpac on-demand"
+" technique cannot be used.
+"
+" BOOTSTRAPPING
+" 1. Install minpac manually: https://github.com/k-takata/minpac#installation
+" 2. :call minpac#update()
+"
+" AFTER ADDING A PLUGIN
+" :call minpac#update()
+"
+" AFTER REMOVING A PLUGIN
+" :call minpac#clean()
 
-  set rtp+=~/.vim/bundle/vundle " Must be manually cloned to bootstrap vundle
-  call vundle#rc()
+silent! packadd minpac
 
-  " Let Vundle manage Vundle (required)
-  Bundle 'gmarik/vundle'
+if exists('g:loaded_minpac')
+  call minpac#init()
+  function! s:pac(...)
+    call call('minpac#add', a:000)
+  endfunction
+else
+  function! s:pac(...)
+    " no-op
+  endfunction
+endif
 
-  " Color themes (makes them available, does not select one)
-  Bundle 'vim-scripts/wombat256.vim'
-  Bundle 'altercation/vim-colors-solarized'
+" Let minpac handle itself
+call s:pac('k-takata/minpac', {'type': 'opt'})
 
-  " Create directories in path if they don't exist yet
-  Bundle 'auto_mkdir'
+" Color themes (makes them available, does not select one)
+call s:pac('vim-scripts/wombat256.vim')
+call s:pac('altercation/vim-colors-solarized')
 
-  " Omni completion on ctrl-space (default <tab> is too intrusive/frustrating)
-  " <c-space> cannot be mapped in vim console; <nul> is equivalent
-  Bundle 'ervandew/supertab'
-  let g:SuperTabMappingForward='<nul>'
-  let g:SuperTabMappingBackward='<s-nul>'
+" Create directories in path if they don't exist yet when saving
+call s:pac('DataWraith/auto_mkdir')
 
-  " Modification tree
-  Bundle 'sjl/gundo.vim'
+" Omni completion on ctrl-space (default <tab> is too intrusive/frustrating)
+" <c-space> cannot be mapped in vim console; <nul> is equivalent
+call s:pac('ervandew/supertab')
+let g:SuperTabMappingForward='<nul>'
+let g:SuperTabMappingBackward='<s-nul>'
 
-  " Buffer list
-  Bundle 'fholgado/minibufexpl.vim'
+" Modification tree
+call s:pac('sjl/gundo.vim')
 
-  " Show CSS colors
-  Bundle 'ap/vim-css-color'
+" Buffer list
+call s:pac('fholgado/minibufexpl.vim')
 
-  " Dummy text generator
-  Bundle 'vim-scripts/loremipsum'
+" Show CSS colors
+call s:pac('ap/vim-css-color')
 
-  " xterm color table, for scheme customization
-  Bundle 'xterm-color-table.vim'
+" Dummy text generator
+call s:pac('vim-scripts/loremipsum')
 
-  " File browser
-  Bundle 'The-NERD-tree'
+" xterm color table, for scheme customization
+call s:pac('guns/xterm-color-table.vim')
 
-  " Toggle mouse between vim and terminal capture
-  Bundle 'toggle_mouse'
+" File browser
+call s:pac('preservim/nerdtree')
 
-  " Show syntax attribute of the character under cursor
-  Bundle 'SyntaxAttr.vim'
+" Toggle mouse between vim and terminal capture
+call s:pac('vim-scripts/toggle_mouse')
 
-  " Table formatting
-  Bundle 'dhruvasagar/vim-table-mode'
-  let g:table_mode_corner='|' " Markdown-compatible tables
+" Show syntax attribute of the character under cursor
+call s:pac('vim-scripts/SyntaxAttr.vim')
 
-  " Text alignment
-  Bundle 'godlygeek/tabular'
-endfunction
+" Table formatting
+call s:pac('dhruvasagar/vim-table-mode')
+let g:table_mode_corner='|' " Markdown-compatible tables
 
-silent! call Vundleize()
+" Text alignment
+call s:pac('godlygeek/tabular')
 
 
 """ General """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
