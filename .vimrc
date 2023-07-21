@@ -70,6 +70,7 @@ let g:SuperTabMappingBackward='<s-nul>'
 
 " Modification tree
 call s:pac('sjl/gundo.vim')
+let g:gundo_prefer_python3=1
 
 " Buffer list
 call s:pac('fholgado/minibufexpl.vim')
@@ -400,6 +401,9 @@ map! <F4> <C-o><F4>
 
 " Toggle paste mode
 set pastetoggle=<F2>
+
+" Toggle undo tree panel
+nnoremap <F6> :GundoToggle<CR>
 
 " Remove search highlight
 noremap <leader>/ :call RemoveSearchHighlight()<CR>
