@@ -1,9 +1,9 @@
 " hilinks.vim: the source herein generates a trace of what
 "              highlighting groups link to what highlighting groups
 "
-"  Author:		Charles E. Campbell <NdrOchipS@PcampbellAfamily.Mbiz>
-"  Date:		Apr 03, 2013
-"  Version:		4l	ASTRO-ONLY
+"  Author:	Charles E Campbell <NcampObell@SdrPchip.AorgM-NOSPAM>
+"  Date:	Jan 10, 2008 - Feb 18, 2016
+"  Version:	4
 "
 "  NOTE:        This script requires Vim 6.0 (or later)
 "               Works best with Vim 7.1 with patch#215
@@ -26,7 +26,7 @@
 if exists("g:loaded_hilinks") || &cp
   finish
 endif
-let g:loaded_hilinks= "v4l"
+let g:loaded_hilinks= "v4"
 if v:version < 700
  echohl WarningMsg
  echo "***warning*** this version of hilinks needs vim 7.0"
@@ -64,8 +64,9 @@ endif
 "             always=0:
 "                   =1: installs autocmd, supporting HiLinkTrace calling on cursor moves
 "                   =2: initialize with top-level highlighting
-fun! <SID>HiLinkTrace(always)
-"  call Dfunc("HiLinkTrace(always=".a:always.")")
+"                   =3: like =0, but don't echo, just return descriptive string
+fun! s:HiLinkTrace(always)
+"  call Dfunc("s:HiLinkTrace(always=".a:always.")")
 
   " save register a
   let keep_rega= @a
@@ -109,7 +110,7 @@ fun! <SID>HiLinkTrace(always)
    while curlink != lastlink && no_overflow < 10
    	let no_overflow = no_overflow + 1
    	let nxtlink     = substitute(@a,'^.*\<'.curlink.'\s\+xxx links to \(\a\+\).*$','\1','')
-	if nxtlink =~ '\<start=\|\<cterm[fb]g=\|\<gui[fb]g='
+	if nxtlink =~# '\<start=\|\<cterm[fb]g=\|\<gui[fb]g='
 	 let nxtlink= substitute(nxtlink,'^[ \t\n]*\(\S\+\)\s\+.*$','\1','')
    	 let hilink = hilink ."->". nxtlink
 	 break
@@ -204,11 +205,12 @@ fun! <SID>HiLinkTrace(always)
   endif
 
   if a:always == 2
-"   call Dret("HiLinkTrace <".hilink.">")
+"   call Dret("s:HiLinkTrace <".retval.">")
    return retval
   endif
 
-"  call Dret("HiLinkTrace : hilink<".hilink.">")
+"  call Dret("s:HiLinkTrace <".retval.">: hilink<".hilink.">")
+  return retval
 endfun
 
 " ---------------------------------------------------------------------
@@ -357,6 +359,15 @@ fun! s:X256matcher(id)
 
 "  call Dret("s:X256matcher <".s:x256ret.">")
   return s:x256ret
+endfun
+
+" ---------------------------------------------------------------------
+" XHiLinkTrace: provides external interface to HiLinkTrace function {{{2
+fun! XHiLinkTrace(always)
+"  call Dfunc("XHiLinkTrace(always=".a:always.")")
+  let retval= s:HiLinkTrace(a:always)
+"  call Dret("XHiLinkTrace <".retval.">")
+  return retval
 endfun
 
 " =====================================================================
