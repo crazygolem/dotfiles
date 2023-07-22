@@ -283,16 +283,16 @@ function! ColorizeStatusLine()
   "
 
   " Save default values (defined by the color scheme)
-  if (!exists('b:sl_ctermbg'))
-    let b:sl_ctermbg = synIDattr(synIDtrans(hlID('StatusLine')),'bg')
-    if (index(['-1', ''], b:sl_ctermbg) > -1)
-      let b:sl_ctermbg = 'None'
+  if (!exists('s:sl_ctermbg'))
+    let s:sl_ctermbg = synIDattr(synIDtrans(hlID('StatusLine')),'bg')
+    if (index(['-1', ''], s:sl_ctermbg) > -1)
+      let s:sl_ctermbg = 'None'
     endif
   endif
-  if (!exists('b:sl_ctermfg'))
-    let b:sl_ctermfg = synIDattr(synIDtrans(hlID('StatusLine')), 'fg')
-    if (index(['-1', ''], b:sl_ctermfg) > -1)
-      let b:sl_ctermfg = 'None'
+  if (!exists('s:sl_ctermfg'))
+    let s:sl_ctermfg = synIDattr(synIDtrans(hlID('StatusLine')), 'fg')
+    if (index(['-1', ''], s:sl_ctermfg) > -1)
+      let s:sl_ctermfg = 'None'
     endif
   endif
 
@@ -300,7 +300,7 @@ function! ColorizeStatusLine()
   if !&l:modifiable
     hi StatusLine ctermbg=15 ctermfg=0  " White
   else
-    exec ':hi StatusLine ctermfg='.b:sl_ctermfg
+    exec ':hi StatusLine ctermfg='.s:sl_ctermfg
     if &l:readonly
       if $USER == 'root'
         hi StatusLine ctermbg=28        " Green
@@ -311,7 +311,7 @@ function! ColorizeStatusLine()
       if $USER == 'root'
         hi StatusLine ctermbg=1         " Red
       else
-        exec ':hi StatusLine ctermbg='.b:sl_ctermbg
+        exec ':hi StatusLine ctermbg='.s:sl_ctermbg
       endif
     endif
   endif
