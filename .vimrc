@@ -56,8 +56,9 @@ endif
 call s:pac('k-takata/minpac', {'type': 'opt'})
 
 " Color themes (makes them available, does not select one)
-call s:pac('vim-scripts/wombat256.vim')
-call s:pac('altercation/vim-colors-solarized')
+call s:pac('vim-scripts/Wombat', {'type': 'opt'})
+call s:pac('vim-scripts/wombat256.vim', {'type': 'opt'})
+call s:pac('altercation/vim-colors-solarized', {'type': 'opt'})
 
 " Create directories in path if they don't exist yet when saving
 call s:pac('DataWraith/auto_mkdir')
@@ -136,12 +137,22 @@ syntax on
 
 "
 """ Color scheme """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-" Use Vundle to install them, or copy them manually in ~/.vim/colors
+" Install a colorscheme as a plugin, or copy it manually into ~/.vim/colors.
 " If none is available, the default scheme will be used.
+
+" Small patches for select colorschemes.
+" The autocommands must be declared before the colorschemes are loaded.
+augroup patch_colorschemes
+  autocmd!
+  autocmd ColorScheme wombat256mod
+    "\ Make it readable with Solarized dark colors
+    \  hi Todo ctermbg=221
+    "\ Increases the text's contrast a bit
+    \| hi StatusLineNC ctermbg=235
+augroup END
 
 " Wombat256
 silent! colorscheme wombat256mod
-silent! colorscheme wombat256mod-patch-solarized
 
 " Solarized
 " This color scheme takes advantage of the Solarized theme for terminal
@@ -267,16 +278,13 @@ set wildmenu                  " Display completion matches in the status line
 set showmode                  " Show current mode (if not normal mode)
 
 " Status line context colors
-hi StatusLineNC ctermbg=235   " Background color for not-current window
-
-function! ColorizeStatusLine()
+function! s:slColorize()
   " Context-dependent color indication, to help determine how a file can be
   " written.
-  " TODO: Check if vim can determine if a file is writeable as root when
-  " non-root.
+  " TODO: When readonly, check if current user/group owns the file
   "
   "       User      Root
-  " :w    Gray      Red
+  " :w    Default   Red
   " :w!   Blue      Green
   " :W    Purple    -
   " N/A   White     White
@@ -284,13 +292,13 @@ function! ColorizeStatusLine()
 
   " Save default values (defined by the color scheme)
   if (!exists('s:sl_ctermbg'))
-    let s:sl_ctermbg = synIDattr(synIDtrans(hlID('StatusLine')),'bg')
+    let s:sl_ctermbg = synIDattr(synIDtrans(hlID('StatusLine')), 'bg', 'cterm')
     if (index(['-1', ''], s:sl_ctermbg) > -1)
       let s:sl_ctermbg = 'None'
     endif
   endif
   if (!exists('s:sl_ctermfg'))
-    let s:sl_ctermfg = synIDattr(synIDtrans(hlID('StatusLine')), 'fg')
+    let s:sl_ctermfg = synIDattr(synIDtrans(hlID('StatusLine')), 'fg', 'cterm')
     if (index(['-1', ''], s:sl_ctermfg) > -1)
       let s:sl_ctermfg = 'None'
     endif
@@ -324,14 +332,15 @@ endfunction
 " but at least it is eventually performed.
 augroup SlColorize
   autocmd!
-  autocmd BufEnter,BufWinEnter,WinEnter,CmdwinEnter * call ColorizeStatusLine()
-  autocmd BufWritePost * call ColorizeStatusLine()            " E.g. using :w!
-  autocmd FileChangedShellPost * call ColorizeStatusLine()
-  autocmd InsertEnter,InsertLeave * call ColorizeStatusLine()
-  autocmd CursorHold,CursorHoldI * call ColorizeStatusLine()  " Fallback
+  autocmd BufEnter,BufWinEnter,WinEnter,CmdwinEnter * call s:slColorize()
+  autocmd BufWritePost * call s:slColorize()            " E.g. using :w!
+  autocmd FileChangedShellPost * call s:slColorize()
+  autocmd InsertEnter,InsertLeave * call s:slColorize()
+  autocmd CursorHold,CursorHoldI * call s:slColorize()  " Fallback
+  autocmd ColorScheme * unlet s:sl_ctermbg s:sl_ctermfg | call s:slColorize()
 
   if exists('##OptionSet')
-    autocmd OptionSet modifiable,readonly call ColorizeStatusLine()
+    autocmd OptionSet modifiable,readonly call s:slColorize()
   endif
 augroup END
 
