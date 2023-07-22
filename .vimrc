@@ -410,6 +410,10 @@ map! <F4> <C-o><F4>
 " Plugin: sjl/gundo.vim
 nnoremap <F6> :GundoToggle<CR>
 
+" Toggle file explorer
+" Plugin: preservim/nerdtree
+nnoremap <silent> <F8> :NERDTreeToggle<CR>
+
 " Remove search highlight
 noremap <leader>/ :call RemoveSearchHighlight()<CR>
 
