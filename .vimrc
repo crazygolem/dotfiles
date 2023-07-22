@@ -319,18 +319,20 @@ endfunction
 
 " Set and update the status line color when needed.
 " The CursorHold events are used as fallback for the cases that cannot be
-" tracked, typically `:set ro!` (there is no event to track the change of a
-" flag). The colorization is not immediate, but at least it is eventually
-" performed. This solution is far from perfect, and sometimes even does not
-" work...
+" tracked, typically `:set ro!` on older versions of vim where there is no event
+" to track the change of a flag; in that case the colorization is not immediate,
+" but at least it is eventually performed.
 augroup SlColorize
   autocmd!
-  autocmd BufEnter * call ColorizeStatusLine()
-  autocmd WinEnter * call ColorizeStatusLine()
+  autocmd BufEnter,BufWinEnter,WinEnter,CmdwinEnter * call ColorizeStatusLine()
   autocmd BufWritePost * call ColorizeStatusLine()            " E.g. using :w!
   autocmd FileChangedShellPost * call ColorizeStatusLine()
   autocmd InsertEnter,InsertLeave * call ColorizeStatusLine()
   autocmd CursorHold,CursorHoldI * call ColorizeStatusLine()  " Fallback
+
+  if exists('##OptionSet')
+    autocmd OptionSet modifiable,readonly call ColorizeStatusLine()
+  endif
 augroup END
 
 
