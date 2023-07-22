@@ -88,7 +88,7 @@ call s:pac('guns/xterm-color-table.vim')
 call s:pac('preservim/nerdtree')
 
 " Toggle mouse between vim and terminal capture
-call s:pac('vim-scripts/toggle_mouse')
+call s:pac('toadjaune/vim-togglemouse')
 
 " Show syntax attribute of the character under cursor
 call s:pac('vim-scripts/SyntaxAttr.vim')
@@ -395,14 +395,19 @@ autocmd BufWinEnter * silent! loadview  " Load buffer state
 
 """ Keymaps """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
+" Toggle paste mode
+set pastetoggle=<F2>
+
+" Toggle mouse capture and line numbers for easy copying
+" Plugin: toadjaune/vim-togglemouse
+map <F3> :set number!<CR> <Plug>ToggleMouse
+
 " Toggle invisible characters
 map <F4> :call ToggleInvisible()<CR>
 map! <F4> <C-o><F4>
 
-" Toggle paste mode
-set pastetoggle=<F2>
-
 " Toggle undo tree panel
+" Plugin: sjl/gundo.vim
 nnoremap <F6> :GundoToggle<CR>
 
 " Remove search highlight
@@ -426,10 +431,8 @@ nnoremap <leader>l :set cursorline!<CR>
 map <S-F9> :HLT!<CR>
 
 " Lighter version of syntax group debugging
+" Plugin: vim-scripts/SyntaxAttr.vim
 map <F9> :call SyntaxAttr()<CR>
-
-" Constrained editing
-map <F3> :call ToggleConstrained()
 
 
 """ That's all Folks! """"""""""""""""""""""""""""""""""""""""""""""""""""""""
