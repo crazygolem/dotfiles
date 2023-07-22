@@ -346,12 +346,12 @@ set listchars=eol:↲,tab:⇥\ ,trail:·,extends:»,precedes:«,nbsp:⎵
 function! ToggleInvisible(...)
   if a:0 > 0
     let b:ti_cc = a:1
-  elseif !exists('b:ti_cc')
-    if &textwidth > 0
-      let b:ti_cc = '+2'
-    else
-      let b:ti_cc = '80'
-    endif
+  elseif &textwidth > 0
+    " newline is not counted in textwidth, so we let it appear "on" the line
+    let b:ti_cc = '+1'
+  else
+    " vim uses 79 when textwidth is not set, cf. `:help gq`
+    let b:ti_cc = '80'
   endif
 
   if &colorcolumn == b:ti_cc
