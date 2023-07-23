@@ -133,6 +133,9 @@ set display=truncate          " Show '@@@' in the last line if it is truncated
 " Syntactic coloration
 syntax on
 
+" Write the viminfo file in the .vim directory
+set viminfo+=n~/.vim/viminfo
+
 
 """ Color scheme """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 " Install a colorscheme as a plugin, or copy it manually into ~/.vim/colors.
