@@ -221,11 +221,6 @@ set gdefault            " Inverts meaning of 'g' flag in substitutions
 set incsearch           " Real-time matching
 set hlsearch            " Highlight matches
 
-" Remove current search highlight (see 'Keymaps' section for mapping)
-function! RemoveSearchHighlight()
-  let @/ = ""
-endfunction
-
 
 """ Navigation & Cursor positioning """"""""""""""""""""""""""""""""""""""""""
 
@@ -397,8 +392,8 @@ nnoremap <F6> :GundoToggle<CR>
 " Plugin: preservim/nerdtree
 nnoremap <silent> <F8> :NERDTreeToggle<CR>
 
-" Remove search highlight
-noremap <leader>/ :call RemoveSearchHighlight()<CR>
+" Remove search highlight, update the highlighting and redraw screen
+nnoremap <silent> <C-l> :nohlsearch<C-R>=has('diff')?'<Bar>diffupdate':''<CR><CR><C-l>
 
 " Toggle relative numbers
 nnoremap <Leader>r :set relativenumber!<CR>
