@@ -109,14 +109,16 @@ let mapleader = 'é'           " Very accessible on fr-CH layout
 set encoding=utf-8            " Required to display Unicode glyphs
 
 
-" Force write, with alias for backward compatibility with muscle memory
-" TODO: Delete the view after it has been reloaded, to prevend surprises in
-" some edge cases (e.g. if for some reason 'viewoptions' is not set correctly,
-" see 'Buffers' section).
-" FIXME: The buffer is reloaded also if write is aborted, e.g. when using ^C
-" instead of giving the password to sudo.
-command! W :execute ':silent w !sudo tee % > /dev/null'
-      \ | :silent! mkview | :edit! | :silent! loadview
+" Force write with sudo
+command! W execute 'silent w !sudo tee '.shellescape(expand('%')).' >/dev/null'
+  \| if v:shell_error > 0 | redraw | echoerr 'Write failed'
+  "\ Reload the buffer to avoid the "buffer has changed" interactive message.
+  "\ The view is saved and reloaded to avoid jumping around after the reload.
+  "\ TODO: Delete the view after it has been reloaded, to prevend surprises in
+  "\ some edge cases (e.g. if for some reason 'viewoptions' is not set
+  "\ correctly, see 'Buffers' section).
+  \| else | silent! mkview | edit! | silent! loadview
+  \| endif
 cmap w!! W
 
 " Prevent mistakenly using ':X' instead of ':x'
