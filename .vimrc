@@ -6,9 +6,7 @@
 "
 " Corollary: You can copy this file in root's home directory to have a
 " minimally usable vim (also statically copy the color scheme in root's
-" ~/.vim/colors otherwise you won't have nice colors)
-"
-" TODO: Gracefully degrade mappings to bundle functions
+" ~/.vim/colors otherwise you won't have nice colors).
 "
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
@@ -135,20 +133,26 @@ set display=truncate          " Show '@@@' in the last line if it is truncated
 " Syntactic coloration
 syntax on
 
-"
+
 """ Color scheme """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 " Install a colorscheme as a plugin, or copy it manually into ~/.vim/colors.
 " If none is available, the default scheme will be used.
 
 " Small patches for select colorschemes.
-" The autocommands must be declared before the colorschemes are loaded.
-augroup patch_colorschemes
+augroup PatchColorschemes
   autocmd!
   autocmd ColorScheme wombat256mod
     "\ Make it readable with Solarized dark colors
     \  hi Todo ctermbg=221
     "\ Increases the text's contrast a bit
     \| hi StatusLineNC ctermbg=235
+
+  " Non-standard highlight groups used in the statusline section below.
+  autocmd VimEnter,ColorScheme *
+    \  hi def StatusLineReadonly     cterm=none ctermbg=31 ctermfg=15
+    \| hi def StatusLineUnmodifiable cterm=none ctermbg=15 ctermfg=0
+    \| hi def StatusLineRoot         cterm=none ctermbg=1  ctermfg=15
+    \| hi def StatusLineRootReadonly cterm=none ctermbg=28 ctermfg=15
 augroup END
 
 " Wombat256
@@ -262,7 +266,39 @@ endif
 
 set laststatus=2              " Always display status line
 
-set statusline=%t             " tail of the filename
+" Context-dependent color indication, to help determine how a file can be
+" written.
+"
+"       User      Root
+" :w    Default   Red
+" :w!   Blue      Green
+" :W    Purple    -
+" N/A   White     White
+"
+" TODO: When readonly, check if current user/group owns the file (User/:W case)
+"
+" Note: when setting a custom highlight group in the statusline instead of
+" modifying directly the StatusLine group has a few benefits:
+" - The statusline is updated automatically when the conditions change, no need
+"   to use autocommands. In some rare cases this might not work, in which case
+"   `:redrawstatus!` could be used.
+" - It prevents an issue where the StatusLine color "bleeds" under window
+"   separators that are next to a non-current window.
+set statusline=%{%
+  \(win_getid()!=g:actual_curwin)
+  \?'%*'
+  \:(!&l:modifiable)
+  \?'%#StatusLineUnmodifiable#'
+  \:(&l:readonly&&$USER=='root')
+  \?'%#StatusLineRootReadonly#'
+  \:(&l:readonly)
+  \?'%#StatusLineReadonly#'
+  \:($USER=='root')
+  \?'%#StatusLineRoot#'
+  \:'%*'
+\%}
+
+set statusline+=%t            " tail of the filename
 set statusline+=\ %3(%m%)     " modified flag
 set statusline+=%r            " read only flag
 set statusline+=[%{strlen(&fenc)?&fenc:'none'}, " file encoding
@@ -276,73 +312,6 @@ set statusline+=\ %P          " percent through file
 set showcmd                   " Show typed commands and selection length
 set wildmenu                  " Display completion matches in the status line
 set showmode                  " Show current mode (if not normal mode)
-
-" Status line context colors
-function! s:slColorize()
-  " Context-dependent color indication, to help determine how a file can be
-  " written.
-  " TODO: When readonly, check if current user/group owns the file
-  "
-  "       User      Root
-  " :w    Default   Red
-  " :w!   Blue      Green
-  " :W    Purple    -
-  " N/A   White     White
-  "
-
-  " Save default values (defined by the color scheme)
-  if (!exists('s:sl_ctermbg'))
-    let s:sl_ctermbg = synIDattr(synIDtrans(hlID('StatusLine')), 'bg', 'cterm')
-    if (index(['-1', ''], s:sl_ctermbg) > -1)
-      let s:sl_ctermbg = 'None'
-    endif
-  endif
-  if (!exists('s:sl_ctermfg'))
-    let s:sl_ctermfg = synIDattr(synIDtrans(hlID('StatusLine')), 'fg', 'cterm')
-    if (index(['-1', ''], s:sl_ctermfg) > -1)
-      let s:sl_ctermfg = 'None'
-    endif
-  endif
-
-  " Colorize status line
-  if !&l:modifiable
-    hi StatusLine ctermbg=15 ctermfg=0  " White
-  else
-    exec ':hi StatusLine ctermfg='.s:sl_ctermfg
-    if &l:readonly
-      if $USER == 'root'
-        hi StatusLine ctermbg=28        " Green
-      else
-        hi StatusLine ctermbg=31        " Light blue
-      endif
-    else
-      if $USER == 'root'
-        hi StatusLine ctermbg=1         " Red
-      else
-        exec ':hi StatusLine ctermbg='.s:sl_ctermbg
-      endif
-    endif
-  endif
-endfunction
-
-" Set and update the status line color when needed.
-" The CursorHold events are used as fallback for the cases that cannot be
-" tracked, typically `:set ro!` on older versions of vim where there is no event
-" to track the change of a flag; in that case the colorization is not immediate,
-" but at least it is eventually performed.
-augroup SlColorize
-  autocmd!
-  autocmd BufEnter,BufWinEnter,WinEnter,CmdwinEnter * call s:slColorize()
-  autocmd BufWritePost * call s:slColorize()            " E.g. using :w!
-  autocmd FileChangedShellPost * call s:slColorize()
-  autocmd InsertEnter,InsertLeave * call s:slColorize()
-  autocmd CursorHold,CursorHoldI * call s:slColorize()  " Fallback
-  autocmd ColorScheme * unlet s:sl_ctermbg s:sl_ctermfg | call s:slColorize()
-
-  if exists('##OptionSet')
-    autocmd OptionSet modifiable,readonly call s:slColorize()
-  endif
-augroup END
 
 
 """ Invisible stuffs and landmarks """""""""""""""""""""""""""""""""""""""""""
