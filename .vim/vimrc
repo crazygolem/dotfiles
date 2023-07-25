@@ -54,7 +54,6 @@ endif
 call s:pac('k-takata/minpac', {'type': 'opt'})
 
 " Color themes (makes them available, does not select one)
-call s:pac('vim-scripts/Wombat', {'type': 'opt'})
 call s:pac('vim-scripts/wombat256.vim', {'type': 'opt'})
 call s:pac('altercation/vim-colors-solarized', {'type': 'opt'})
 
@@ -147,23 +146,42 @@ set viminfo+=n~/.vim/viminfo
 augroup PatchColorschemes
   autocmd!
   autocmd ColorScheme wombat256mod
-    "\ Make it readable with Solarized dark colors
+    "\ Make it readable with Solarized dark terminal emulators (where yellow is
+    "\ remapped to gray-ish)
     \  hi Todo ctermbg=221
-    "\ Increases the text's contrast a bit
-    \| hi StatusLineNC ctermbg=235
 
   " Non-standard highlight groups used in the statusline section below.
   autocmd VimEnter,ColorScheme *
-    \  hi def StatusLineReadonly     cterm=none ctermbg=31 ctermfg=15
-    \| hi def StatusLineUnmodifiable cterm=none ctermbg=15 ctermfg=0
-    \| hi def StatusLineRoot         cterm=none ctermbg=1  ctermfg=15
-    \| hi def StatusLineRootReadonly cterm=none ctermbg=28 ctermfg=15
+    \  if (&t_Co < 256)
+    \|   hi def StlReadonly     cterm=none ctermbg=darkblue  ctermfg=white
+    \|   hi def StlUnmodifiable cterm=none ctermbg=darkgrey  ctermfg=white
+    \|   hi def StlRoot         cterm=none ctermbg=darkred   ctermfg=white
+    \|   hi def StlRootReadonly cterm=none ctermbg=darkgreen ctermfg=white
+    \| else
+    \|   hi def StlReadonly     cterm=none ctermbg=31  ctermfg=15 guibg=#0087AF guifg=#FFFFD7
+    \|   hi def StlUnmodifiable cterm=none ctermbg=235 ctermfg=15 guibg=#073642 guifg=#FFFFD7
+    \|   hi def StlRoot         cterm=none ctermbg=124 ctermfg=15 guibg=#DC322F guifg=#FFFFD7
+    \|   hi def StlRootReadonly cterm=none ctermbg=28  ctermfg=15 guibg=#008700 guifg=#FFFFD7
+    \| endif
 augroup END
 
-" Wombat256
-silent! colorscheme wombat256mod
+" When true-color mode is enabled, vim will use the guibg/guifg values of the
+" highlight groups, also in terminals.
+" Vim will correctly set t_Co if the TERM env variable advertises correctly a
+" terminal emulator that supports 24bit colors (done via terminfo or termcap),
+" however a lot of terminals don't (for compatibility), and instead set the
+" COLORTERM env variable, cf. https://github.com/termstandard/colors.
+if (&t_Co >= 16777216 || $COLORTERM == 'truecolor')
+  set termguicolors
+endif
+
+" Wombat256 doesn't support less than 256 colors
+if (&t_Co >= 256)
+  silent! colorscheme wombat256mod
+endif
 
 " Solarized
+" (Supports t_Co < 256, but I haven't tested.)
 " This color scheme takes advantage of the Solarized theme for terminal
 " emulators. If it is not available or not used, a compatibility mode is
 " available, but it looks inferior.
@@ -277,8 +295,8 @@ set laststatus=2              " Always display status line
 "
 " TODO: When readonly, check if current user/group owns the file (User/:W case)
 "
-" Note: when setting a custom highlight group in the statusline instead of
-" modifying directly the StatusLine group has a few benefits:
+" Note: setting a custom highlight group in the statusline instead of modifying
+" directly the StatusLine group has a few benefits:
 " - The statusline is updated automatically when the conditions change, no need
 "   to use autocommands. In some rare cases this might not work, in which case
 "   `:redrawstatus!` could be used.
@@ -288,13 +306,13 @@ set statusline=%{%
   \(win_getid()!=g:actual_curwin)
   \?'%*'
   \:(!&l:modifiable)
-  \?'%#StatusLineUnmodifiable#'
+  \?'%#StlUnmodifiable#'
   \:(&l:readonly&&$USER=='root')
-  \?'%#StatusLineRootReadonly#'
+  \?'%#StlRootReadonly#'
   \:(&l:readonly)
-  \?'%#StatusLineReadonly#'
+  \?'%#StlReadonly#'
   \:($USER=='root')
-  \?'%#StatusLineRoot#'
+  \?'%#StlRoot#'
   \:'%*'
 \%}
 
