@@ -55,7 +55,11 @@ call s:pac('k-takata/minpac', {'type': 'opt'})
 
 " Color themes (makes them available, does not select one)
 call s:pac('vim-scripts/wombat256.vim', {'type': 'opt'})
-call s:pac('altercation/vim-colors-solarized', {'type': 'opt'})
+call s:pac('lifepillar/vim-solarized8', {'type': 'opt'})
+call s:pac('lifepillar/vim-gruvbox8', {'type': 'opt'})
+call s:pac('https://git.sr.ht/~romainl/vim-bruin', {'type': 'opt'})
+call s:pac('Lokaltog/vim-monotone', {'type': 'opt'})
+call s:pac('pbrisbin/vim-colors-off', {'type': 'opt'})
 
 " Create directories in path if they don't exist yet when saving
 call s:pac('DataWraith/auto_mkdir')
@@ -113,7 +117,7 @@ command! W execute 'silent w !sudo tee '.shellescape(expand('%')).' >/dev/null'
   \| if v:shell_error > 0 | redraw | echoerr 'Write failed'
   "\ Reload the buffer to avoid the "buffer has changed" interactive message.
   "\ The view is saved and reloaded to avoid jumping around after the reload.
-  "\ TODO: Delete the view after it has been reloaded, to prevend surprises in
+  "\ TODO: Delete the view after it has been reloaded, to prevent surprises in
   "\ some edge cases (e.g. if for some reason 'viewoptions' is not set
   "\ correctly, see 'Buffers' section).
   \| else | silent! mkview | edit! | silent! loadview
@@ -145,9 +149,10 @@ set viminfo+=n~/.vim/viminfo
 " Small patches for select colorschemes.
 augroup PatchColorschemes
   autocmd!
+
   autocmd ColorScheme wombat256mod
-    "\ Make it readable with Solarized dark terminal emulators (where yellow is
-    "\ remapped to gray-ish)
+    "\ Make it readable with Solarized dark terminal emulators (where bright
+    "\ yellow is remapped to gray-ish)
     \  hi Todo ctermbg=221
 
   " Non-standard highlight groups used in the statusline section below.
@@ -167,10 +172,10 @@ augroup END
 
 " When true-color mode is enabled, vim will use the guibg/guifg values of the
 " highlight groups, also in terminals.
-" Vim will correctly set t_Co if the TERM env variable advertises correctly a
-" terminal emulator that supports 24bit colors (done via terminfo or termcap),
-" however a lot of terminals don't (for compatibility), and instead set the
-" COLORTERM env variable, cf. https://github.com/termstandard/colors.
+" Vim will set t_Co if the TERM env variable advertises correctly a terminal
+" emulator that supports 24bit colors (done via terminfo or termcap), however a
+" lot of terminals don't (for compatibility), and instead set the COLORTERM env
+" variable, cf. https://github.com/termstandard/colors.
 if (&t_Co >= 16777216 || $COLORTERM == 'truecolor')
   set termguicolors
 endif
@@ -179,15 +184,6 @@ endif
 if (&t_Co >= 256)
   silent! colorscheme wombat256mod
 endif
-
-" Solarized
-" (Supports t_Co < 256, but I haven't tested.)
-" This color scheme takes advantage of the Solarized theme for terminal
-" emulators. If it is not available or not used, a compatibility mode is
-" available, but it looks inferior.
-"let g:solarized_termcolors=256   " Uncomment to activate the degraded mode
-"set background=dark              " Uncomment if vim detection is ineffective
-"silent! colorscheme solarized
 
 
 """ Line numbers """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
