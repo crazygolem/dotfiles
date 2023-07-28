@@ -344,8 +344,9 @@ function! ToggleInvisible(...)
     " newline is not counted in textwidth, so we let it appear "on" the line
     let b:ti_cc = '+1'
   else
-    " vim uses 79 when textwidth is not set, cf. `:help gq`
-    let b:ti_cc = '80'
+    " Some of vim's formatting commands (e.g. :right) use 80 when 'textwidth' is
+    " 0, others commands use values close to that (like gq which uses 79).
+    let b:ti_cc = '81'
   endif
 
   if &colorcolumn == b:ti_cc
