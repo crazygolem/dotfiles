@@ -1,14 +1,14 @@
-""" Crazygolem's vimrc """""""""""""""""""""""""""""""""""""""""""""""""""""""
+""" Crazygolem's vimrc """""""""""""""""""""""""""""""""""""""""""""""""""""""""
 "
 " This vimrc file provides graceful degradation when some plugins are not
 " installed. Restricted mode provides an enhanced status line, a lot of
 " usability and mappings to basic functions.
 "
-" Corollary: You can copy this file in root's home directory to have a
-" minimally usable vim (also statically copy the color scheme in root's
-" ~/.vim/colors otherwise you won't have nice colors).
+" Corollary: You can copy this file in root's home directory to have a minimally
+" usable vim (also statically copy the color scheme in root's ~/.vim/colors
+" otherwise you won't have nice colors).
 "
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 " `:set nocp` has many side effects, so this should be done only when
 " 'compatible' is set.
@@ -17,7 +17,7 @@ if &compatible
 endif
 
 
-"""""" Plugins """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+""" Plugins """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 " Plugins are loaded by vim's built-in plugin manager; this requires vim 8+.
 " Minpac is used to bootstrap and update plugins easily.
@@ -103,7 +103,7 @@ let g:table_mode_corner='|' " Markdown-compatible tables
 call s:pac('godlygeek/tabular')
 
 
-""" General """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+""" General """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 " Defines <leader>
 let mapleader = 'é'           " Very accessible on fr-CH layout
@@ -142,7 +142,7 @@ syntax on
 set viminfo+=n~/.vim/viminfo
 
 
-""" Color scheme """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+""" Color scheme """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 " Install a colorscheme as a plugin, or copy it manually into ~/.vim/colors.
 " If none is available, the default scheme will be used.
 
@@ -186,14 +186,14 @@ if (&t_Co >= 256)
 endif
 
 
-""" Line numbers """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+""" Line numbers """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 " Relative line numbers: see the 'Keymaps' section
 
 set number
 set numberwidth=5
 
 
-""" Cursor """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+""" Cursor """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 " For some reason, unlike vim neovim does not have cursor blinking by default.
 " The following configuration has been takend from nvim's `:help 'guicursor'`.
@@ -201,15 +201,17 @@ set guicursor+=a:blinkwait700-blinkoff400-blinkon250-Cursor/lCursor
               \,sm:block-blinkwait175-blinkoff150-blinkon175
 
 
-""" Mouse """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+""" Mouse """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 set mouse=a                   " Use mouse to click
 set mousehide                 " Hide mouse pointer when typing
 
 
-""" Formatting """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+""" Formatting """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 set formatoptions+=j          " Removes comment leader when joining comments
+set formatoptions+=ro/        " Add comment leader after a newline in a comment
+set formatoptions+=n          " Recognizes numbered lists when formatting text
 
 " Indentation and tabs
 set expandtab                 " Convert tabs to spaces
@@ -228,8 +230,15 @@ vnoremap <S-Tab> <gvgv
 noremap <Tab> >>
 noremap <S-Tab> <<
 
+augroup PatchComments
+  autocmd!
+  autocmd FileType vim
+    \  setlocal comments=:\"\\\ ,:\"
+    \| setlocal commentstring=\"%s
+augroup END
 
-""" Search and replace """""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+""" Search and replace """""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 set ignorecase          " Searches are case-insensitive...
 set smartcase           " ... except when pattern contains uppercase letters
@@ -238,7 +247,7 @@ set incsearch           " Real-time matching
 set hlsearch            " Highlight matches
 
 
-""" Navigation & Cursor positioning """"""""""""""""""""""""""""""""""""""""""
+""" Navigation & Cursor positioning """"""""""""""""""""""""""""""""""""""""""""
 
 " Give some context when the cursor is near the border
 set scrolloff=5              " Set to 999 for 'always at mid-screen'
@@ -260,7 +269,7 @@ nnoremap gj j
 " Move cursor beyond last character
 set virtualedit=onemore
 
-" Do not move the cursor left when returning to normal mode from insert mode
+" Do not move the cursor left when returning to normal mode from insert mode.
 " Very nice and intuitive with 'virtualedit=onemore'. Also makes a sound when
 " the cursor cannot stay in place (e.g. when there is no virtualedit and the
 " cursor has to move left at the end of the line)
@@ -276,7 +285,7 @@ if &term =~ '^screen'
 endif
 
 
-""" Statusline """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+""" Statusline """""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 set laststatus=2              " Always display status line
 
@@ -328,7 +337,7 @@ set wildmenu                  " Display completion matches in the status line
 set showmode                  " Show current mode (if not normal mode)
 
 
-""" Invisible stuffs and landmarks """""""""""""""""""""""""""""""""""""""""""
+""" Invisible stuffs and landmarks """""""""""""""""""""""""""""""""""""""""""""
 
 " List of invisible characters and their visible replacement
 set listchars=eol:↲,tab:⇥\ ,trail:·,extends:»,precedes:«,nbsp:⎵
@@ -359,7 +368,7 @@ function! ToggleInvisible(...)
 endfunction
 
 
-""" Miscellaneous """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+""" Miscellaneous """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 " Fix terminal timeout when pressing escape
 function! ToggleEscTimeout()
@@ -380,7 +389,7 @@ endfunction
 "au BufEnter * if &l:ro | set nomodifiable | endif
 
 
-""" Buffers """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+""" Buffers """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 " Stateful buffers (remembers folds, cursor position)
 set viewoptions-=options                " Prevents surprises (e.g. nonumber)
@@ -388,7 +397,7 @@ autocmd BufWinLeave * silent! mkview    " Save buffer state
 autocmd BufWinEnter * silent! loadview  " Load buffer state
 
 
-""" Keymaps """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+""" Keymaps """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 " Toggle paste mode
 set pastetoggle=<F2>
@@ -434,4 +443,4 @@ map <S-F9> :HLT!<CR>
 map <F9> :call SyntaxAttr()<CR>
 
 
-""" That's all Folks! """"""""""""""""""""""""""""""""""""""""""""""""""""""""
+""" That's all Folks! """"""""""""""""""""""""""""""""""""""""""""""""""""""""""
