@@ -1,9 +1,0 @@
-[Desktop Entry]
-Version=1.1
-Name=Scripts Launcher
-Description=Executes shell sripts
-NoDisplay=true
-Type=Application
-MimeType=text/x-shellscript;application/x-shellscript
-Exec=sh -c 'cd "$(dirname "$0")" && exec "$0"' %f
-Terminal=false
