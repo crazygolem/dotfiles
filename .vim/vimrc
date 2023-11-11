@@ -102,6 +102,9 @@ let g:table_mode_corner='|' " Markdown-compatible tables
 " Text alignment
 call s:pac('godlygeek/tabular')
 
+" Syntax for justfiles
+call s:pac('NoahTheDuke/vim-just')
+
 
 """ General """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
