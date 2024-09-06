@@ -1,0 +1,30 @@
+#!/usr/bin/env clientify
+# vim: ft=bash
+# shellcheck shell=bash
+
+
+# Self-cleaning working directory for temp files, e.g. with:
+#     tmp="$(mktemp -p "$WD")/example"
+trap 'rm -rf "$WD"' EXIT
+WD=$(mktemp -d)
+
+# Make :* functions appear in tab completion
+COMP_WORDBREAKS="${COMP_WORDBREAKS//:/}"
+
+# Clientify initialization
+_HISTFILE="${XDG_STATE_HOME:-$HOME/.local/state}/$(basename "$0")/history"
+_BANNER=(
+    "$(tput bold)Client initialized$(tput sgr0)"
+    "» Use :<tab><tab> to list available commands"
+    ""
+)
+# shellcheck disable=SC2016
+printf -v _PS1 '%s\W%s> ' \
+    "$(tput setaf 4; tput bold)" "$(tput sgr0)" \
+
+################################################################################
+
+:myip() {
+    curl -sS https://ipinfo.io \
+    | sed '$a\'
+}
