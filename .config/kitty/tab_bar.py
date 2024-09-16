@@ -1,6 +1,7 @@
 from kitty.fast_data_types import (
     Screen,
     get_boss,
+    get_options,
 )
 from kitty.tab_bar import (
     DrawData,
@@ -8,8 +9,24 @@ from kitty.tab_bar import (
     TabBarData,
     as_rgb,
     draw_title,
-    powerline_symbols,
+    template_has_field,
 )
+
+from wcwidth import (
+    wcswidth as wlen,
+    wcwidth as wclen,
+)
+
+
+_opts = get_options()
+
+_separator_symbols: dict[str, tuple[str, str]] = {
+    'simple':   ('▌', '│'),
+    'dashed':   ('▌', '┊'),
+    'angled':   ('', ''),
+    'slanted':  ('', '╱'),
+    'rounded':  ('', ''),
+}
 
 def _ntabs(tab_id: int):
     for tm in get_boss().os_window_map.values():
@@ -30,9 +47,73 @@ def _tab_length(
 
     width = ncols // ntabs
     # compensate missing width m by adding 1 to m first tabs
-    # TODO: Evenly distribute compensation instead
     width += 1 if (index <= ncols % ntabs) else 0
     return width - 1 # somehow length is 0-based
+
+# Splits a string at length `n`, considering wide charactes that display on two
+# cells as being of length 2.
+def wsplit(s: str, n: int) -> tuple[str, str]:
+    first = ''
+    last = ''
+    wi = 0
+    for i, c in enumerate(s):
+        if wi >= n:
+            last = s[i:]
+            break
+
+        l = wclen(c)
+        wi += l
+        if wi > n:
+            raise Exception(f"Index {n} in '{s}' is within the wide character '{c}'.")
+        first += c
+
+    return (first, last)
+
+
+def _draw_title(
+    draw_data: DrawData,
+    screen: Screen,
+    tab: TabBarData,
+    index: int,
+    max_title_length: int = 0
+) -> None:
+    def make_title(tpl):
+        tpl_has_notif = any(map(
+            lambda s: template_has_field(tpl, s),
+            ['bell_symbol', 'activity_symbol']
+        ))
+
+        status = ''
+        length = '0'
+
+        status += "{' ' if layout_name == 'stack' else ''}"
+        length += "+ (2 if layout_name == 'stack' else 0)"
+
+        if not tpl_has_notif:
+            status += "{bell_symbol or activity_symbol}"
+            length += f"+ ({wlen(draw_data.bell_on_tab)} if bell_symbol else 0)"
+            length += f"+ ({wlen(draw_data.tab_activity_symbol)} if not bell_symbol and activity_symbol else 0)"
+
+        if tpl_has_notif:
+            status += "{' ' if layout_name == 'stack' else ''}"
+            length += "+ (1 if layout_name == 'stack' else 0)"
+        else:
+            status += "{' ' if layout_name == 'stack' or bell_symbol or activity_symbol else ''}"
+            length += "+ (1 if layout_name == 'stack' or bell_symbol or activity_symbol else 0)"
+
+        # Status length is removed twice when centering to avoid status items
+        # causing the title to shift (if there is enough space). It must then
+        # be compensated on the right once, to avoid status items causing the
+        # tab to change size.
+        return f'{status}{{f"{tpl}".center(max_title_length - ({length}) * 2).ljust(max_title_length - ({length}))}}'
+
+    draw_data = draw_data._replace(title_template = make_title(draw_data.title_template))
+    if draw_data.active_title_template is not None:
+        draw_data = draw_data._replace(active_title_template = make_title(draw_data.active_title_template))
+
+    draw_title(draw_data, screen, tab, index, max_title_length)
+
+
 
 def draw_tab(
     draw_data: DrawData,
@@ -61,7 +142,13 @@ def draw_tab(
         next_tab_bg = default_bg
         needs_soft_separator = False
 
-    separator_symbol, soft_separator_symbol = powerline_symbols.get(draw_data.powerline_style, ('', ''))
+    sep = _opts.tab_separator
+    separator_symbol, soft_separator_symbol = _separator_symbols.get(sep) or (
+        ('▌', sep) if (l := wlen(sep)) == 1
+        else wsplit(sep, l // 2) if l % 2 == 0
+        else _separator_symbols.get('simple')
+    )
+
     min_title_length = 1 + 2
     start_draw = 2
 
@@ -74,7 +161,7 @@ def draw_tab(
     if min_title_length >= max_tab_length:
         screen.draw('…')
     else:
-        draw_title(draw_data, screen, tab, index, max_tab_length)
+        _draw_title(draw_data, screen, tab, index, max_tab_length - 2)
         extra = screen.cursor.x + start_draw - before - max_tab_length
         if extra > 0 and extra + 1 < screen.cursor.x:
             screen.cursor.x -= extra + 1
