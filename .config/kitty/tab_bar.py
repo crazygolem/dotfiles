@@ -8,8 +8,7 @@ from kitty.tab_bar import (
     ExtraData,
     TabBarData,
     as_rgb,
-    draw_title,
-    template_has_field,
+    draw_title as kitty_draw_title,
     safe_builtins,
 )
 
@@ -25,7 +24,7 @@ from wcwidth import (
 safe_builtins['dlen'] = wcswidth
 
 
-_separator_symbols: dict[str, tuple[str, str]] = {
+separator_symbols: dict[str, tuple[str, str]] = {
     'simple':   ('▌', '│'),
     'dashed':   ('▌', '┊'),
     'angled':   ('', ''),
@@ -34,7 +33,7 @@ _separator_symbols: dict[str, tuple[str, str]] = {
 }
 
 # Returns the number of tabs in the os window that contains the specified tab.
-def _ntabs(tab_id: int):
+def num_tabs(tab_id: int):
     for tm in get_boss().os_window_map.values():
         tab = tm.tab_for_id(tab_id)
         if tab is not None:
@@ -43,12 +42,12 @@ def _ntabs(tab_id: int):
 
 # Computes the tab length such that all tabs have approx. the same size and the
 # tab bar is filled.
-def _tab_length(
+def tab_length(
     screen: Screen,
     tab_id: int,
     index: int, # 1-based
 ) -> int:
-    ntabs = _ntabs(tab_id)
+    ntabs = num_tabs(tab_id)
     ncols = screen.columns
 
     width = ncols // ntabs
@@ -75,45 +74,39 @@ def wsplit(s: str, n: int) -> tuple[str, str]:
 
     return (first, last)
 
-# Wrapper for Kitty's `draw_title` function that align the status zone and the
+# Wrapper for Kitty's `draw_title` function that aligns the status zone and the
 # title correctly, making sure to preserve the expected tab size.
-def _draw_title(
+def draw_title(
     draw_data: DrawData,
     screen: Screen,
     tab: TabBarData,
     index: int,
     max_title_length: int = 0
 ) -> None:
-    def make_title(tpl):
-        tpl_has_notif = any(map(
-            lambda s: template_has_field(tpl, s),
-            ['bell_symbol', 'activity_symbol']
-        ))
+    def make_title(tpl: str) -> str:
+        if tpl is None:
+            return None
 
-        status = '{" " if layout_name == "stack" else ""}'
+        (_, status, sep, title, *_) = tpl.split(tpl[0], 5)
 
-        if not tpl_has_notif:
-            status += '{bell_symbol or activity_symbol}'
-
-        # Status zone separator, only shown when there is at least one status
-        # item.
-        status += f'{{" " if dlen(f"{status}") > 0 else ""}}'
-
+        status += f'{{f"{sep}" if f"{status}" else ""}}'
         length = f'dlen(f"{status}")'
-        # Apply correction if the title contains wide characters.
-        max_length = f'max_title_length - (dlen(f"{tpl}") - len(f"{tpl}"))'
+
+        # Apply corrections if the title contains wide characters.
+        max_length = f'max_title_length - (dlen(f"{title}") - len(f"{title}"))'
 
         # Status length is removed twice when centering to avoid status items
         # causing the title to shift (if there is enough space). It must then
         # be compensated on the right once, to avoid status items causing the
         # tab to change size.
-        return f'{status}{{f"{tpl}".center(({max_length}) - ({length}) * 2).ljust(({max_length}) - ({length}))}}'
+        return f'{status}{{f"{title}".center(({max_length}) - ({length}) * 2).ljust(({max_length}) - ({length}))}}'
 
-    draw_data = draw_data._replace(title_template = make_title(draw_data.title_template))
-    if draw_data.active_title_template is not None:
-        draw_data = draw_data._replace(active_title_template = make_title(draw_data.active_title_template))
+    draw_data = draw_data._replace(
+        title_template = make_title(draw_data.title_template),
+        active_title_template = make_title(draw_data.active_title_template),
+    )
 
-    draw_title(draw_data, screen, tab, index, max_title_length)
+    kitty_draw_title(draw_data, screen, tab, index, max_title_length)
 
 
 # Draws the tab bar as a fullwidth bar with tabs of equal size.
@@ -129,7 +122,7 @@ def draw_tab(
     extra_data: ExtraData
 ) -> int:
     # Override kitty's tab length algorithm. We treat this as fixed length.
-    max_tab_length = _tab_length(screen, tab.tab_id, index)
+    max_tab_length = tab_length(screen, tab.tab_id, index)
     if extra_data.for_layout:
         screen.cursor.x += max_tab_length
         return screen.cursor.x
@@ -146,10 +139,10 @@ def draw_tab(
         needs_soft_separator = False
 
     sep = get_options().tab_separator
-    separator_symbol, soft_separator_symbol = _separator_symbols.get(sep) or (
+    separator_symbol, soft_separator_symbol = separator_symbols.get(sep) or (
         ('▌', sep) if (l := wcswidth(sep)) == 1
         else wsplit(sep, l // 2) if l % 2 == 0
-        else _separator_symbols.get('simple')
+        else separator_symbols.get('simple')
     )
 
     min_title_length = 1 + 2
@@ -164,7 +157,7 @@ def draw_tab(
     if min_title_length >= max_tab_length:
         screen.draw('…')
     else:
-        _draw_title(draw_data, screen, tab, index, max_tab_length - 2)
+        draw_title(draw_data, screen, tab, index, max_tab_length - 2)
         extra = screen.cursor.x + start_draw - before - max_tab_length
         if extra > 0 and extra + 1 < screen.cursor.x:
             screen.cursor.x -= extra + 1
@@ -173,7 +166,11 @@ def draw_tab(
     if not needs_soft_separator:
         screen.draw(' ')
         if is_last:
+            # Replaces the separator so it fits the edge of the screen
             screen.draw(' ')
+            # Should not happen as we increase tab width such that the bar gets
+            # completely filled, but if anything weird happens we cover past the
+            # last tab so that the "inactive" background doesn't show.
             if (e := screen.columns - screen.cursor.x) > 0:
                 screen.draw(' ' * e)
         else:
