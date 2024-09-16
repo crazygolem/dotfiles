@@ -10,15 +10,20 @@ from kitty.tab_bar import (
     as_rgb,
     draw_title,
     template_has_field,
+    safe_builtins,
 )
 
 from wcwidth import (
-    wcswidth as wlen,
-    wcwidth as wclen,
+    wcswidth,
+    wcwidth,
 )
 
+# Patch Kitty's tab_bar script to allow extra functions in the title template.
+# `dlen` (Display Length) correctly computes string length for display, where
+# wide characters take up two cells. This makes it easier to correctly compute
+# widths to get fixed tab sizes.
+safe_builtins['dlen'] = wcswidth
 
-_opts = get_options()
 
 _separator_symbols: dict[str, tuple[str, str]] = {
     'simple':   ('▌', '│'),
@@ -28,6 +33,7 @@ _separator_symbols: dict[str, tuple[str, str]] = {
     'rounded':  ('', ''),
 }
 
+# Returns the number of tabs in the os window that contains the specified tab.
 def _ntabs(tab_id: int):
     for tm in get_boss().os_window_map.values():
         tab = tm.tab_for_id(tab_id)
@@ -61,7 +67,7 @@ def wsplit(s: str, n: int) -> tuple[str, str]:
             last = s[i:]
             break
 
-        l = wclen(c)
+        l = wcwidth(c)
         wi += l
         if wi > n:
             raise Exception(f"Index {n} in '{s}' is within the wide character '{c}'.")
@@ -69,7 +75,8 @@ def wsplit(s: str, n: int) -> tuple[str, str]:
 
     return (first, last)
 
-
+# Wrapper for Kitty's `draw_title` function that align the status zone and the
+# title correctly, making sure to preserve the expected tab size.
 def _draw_title(
     draw_data: DrawData,
     screen: Screen,
@@ -83,29 +90,24 @@ def _draw_title(
             ['bell_symbol', 'activity_symbol']
         ))
 
-        status = ''
-        length = '0'
-
-        status += "{' ' if layout_name == 'stack' else ''}"
-        length += "+ (2 if layout_name == 'stack' else 0)"
+        status = '{" " if layout_name == "stack" else ""}'
 
         if not tpl_has_notif:
-            status += "{bell_symbol or activity_symbol}"
-            length += f"+ ({wlen(draw_data.bell_on_tab)} if bell_symbol else 0)"
-            length += f"+ ({wlen(draw_data.tab_activity_symbol)} if not bell_symbol and activity_symbol else 0)"
+            status += '{bell_symbol or activity_symbol}'
 
-        if tpl_has_notif:
-            status += "{' ' if layout_name == 'stack' else ''}"
-            length += "+ (1 if layout_name == 'stack' else 0)"
-        else:
-            status += "{' ' if layout_name == 'stack' or bell_symbol or activity_symbol else ''}"
-            length += "+ (1 if layout_name == 'stack' or bell_symbol or activity_symbol else 0)"
+        # Status zone separator, only shown when there is at least one status
+        # item.
+        status += f'{{" " if dlen(f"{status}") > 0 else ""}}'
+
+        length = f'dlen(f"{status}")'
+        # Apply correction if the title contains wide characters.
+        max_length = f'max_title_length - (dlen(f"{tpl}") - len(f"{tpl}"))'
 
         # Status length is removed twice when centering to avoid status items
         # causing the title to shift (if there is enough space). It must then
         # be compensated on the right once, to avoid status items causing the
         # tab to change size.
-        return f'{status}{{f"{tpl}".center(max_title_length - ({length}) * 2).ljust(max_title_length - ({length}))}}'
+        return f'{status}{{f"{tpl}".center(({max_length}) - ({length}) * 2).ljust(({max_length}) - ({length}))}}'
 
     draw_data = draw_data._replace(title_template = make_title(draw_data.title_template))
     if draw_data.active_title_template is not None:
@@ -114,7 +116,8 @@ def _draw_title(
     draw_title(draw_data, screen, tab, index, max_title_length)
 
 
-
+# Draws the tab bar as a fullwidth bar with tabs of equal size.
+# Based on Kitty's `draw_tab_with_powerline`.
 def draw_tab(
     draw_data: DrawData,
     screen: Screen,
@@ -142,9 +145,9 @@ def draw_tab(
         next_tab_bg = default_bg
         needs_soft_separator = False
 
-    sep = _opts.tab_separator
+    sep = get_options().tab_separator
     separator_symbol, soft_separator_symbol = _separator_symbols.get(sep) or (
-        ('▌', sep) if (l := wlen(sep)) == 1
+        ('▌', sep) if (l := wcswidth(sep)) == 1
         else wsplit(sep, l // 2) if l % 2 == 0
         else _separator_symbols.get('simple')
     )
