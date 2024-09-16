@@ -1,21 +1,10 @@
-from kitty.fast_data_types import (
-    Screen,
-    get_boss,
-    get_options,
-)
-from kitty.tab_bar import (
-    DrawData,
-    ExtraData,
-    TabBarData,
-    as_rgb,
-    draw_title as kitty_draw_title,
-    safe_builtins,
-)
+from wcwidth import wcswidth, wcwidth
 
-from wcwidth import (
-    wcswidth,
-    wcwidth,
-)
+from kitty.fast_data_types import Screen, get_boss, get_options
+from kitty.tab_bar import DrawData, ExtraData, TabBarData, as_rgb
+from kitty.tab_bar import draw_title as kitty_draw_title
+from kitty.tab_bar import safe_builtins
+
 
 # Patch Kitty's tab_bar script to allow extra functions in the title template.
 # `dlen` (Display Length) correctly computes string length for display, where
