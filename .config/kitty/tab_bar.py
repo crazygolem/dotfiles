@@ -21,23 +21,15 @@ separator_symbols: dict[str, tuple[str, str]] = {
     'rounded':  ('', ''),
 }
 
-# Returns the number of tabs in the os window that contains the specified tab.
-def num_tabs(tab_id: int):
-    for tm in get_boss().os_window_map.values():
-        tab = tm.tab_for_id(tab_id)
-        if tab is not None:
-            return len(tm.tabs)
-    return 1
-
-# Computes the title length such that all tabs have about the same size to
-# display the title, ensuring that the tab bar is filled exactly.
+# Computes the title length for the current tab, such that all tabs have about
+# the same title size, ensuring that the tab bar is filled exactly.
+# This assumes no separator before the first tab and after the last.
 def title_length(
     screen: Screen,
-    tab_id: int,
     index: int, # 1-based
     sep_width: int,
 ) -> int:
-    ntabs = num_tabs(tab_id)
+    ntabs = len(get_boss().active_tab_manager.tabs)
     ncols = screen.columns - (ntabs - 1) * sep_width
 
     width = ncols // ntabs
@@ -49,21 +41,13 @@ def title_length(
 # Splits a string at length `n`, considering wide charactes that display on two
 # cells as being of length 2.
 def wsplit(s: str, n: int) -> tuple[str, str]:
-    first = ''
-    last = ''
     wi = 0
     for i, c in enumerate(s):
         if wi >= n:
-            last = s[i:]
-            break
-
-        l = wcwidth(c)
-        wi += l
+            return (s[:i], s[i:])
+        wi += wcwidth(c)
         if wi > n:
-            raise Exception(f"Index {n} in '{s}' is within the wide character '{c}'.")
-        first += c
-
-    return (first, last)
+            raise Exception(f"Index {n} in '{s}' splits the wide character '{c}'.")
 
 def cfg_separator(
     draw_data: DrawData,
@@ -107,11 +91,13 @@ def draw_title(
         # Apply corrections if the title contains wide characters.
         max_length = f'max_title_length - (dlen(f"{title}") - len(f"{title}"))'
 
-        # Status length is removed twice when centering to avoid status items
-        # causing the title to shift (if there is enough space). It must then
-        # be compensated on the right once, to avoid status items causing the
-        # tab to change size.
-        return f'{status}{{f"{title}".center(({max_length}) - ({length}) * 2).ljust(({max_length}) - ({length}))}}'
+        # Status length is removed from left and right of title to avoid status
+        # items causing the title to shift (if there is enough space).
+        # It should then be compensated on the right to avoid the tab itself
+        # changing size, but this can easily be done after the title has been
+        # drawn, without having to compute the rendered size of the status or
+        # title.
+        return f'{status}{{f"{title}".center(({max_length}) - ({length}) * 2)}}'
 
     draw_data = draw_data._replace(
         title_template = make_title(draw_data.title_template),
@@ -121,7 +107,9 @@ def draw_title(
     before = screen.cursor.x
     kitty_draw_title(draw_data, screen, tab, index, max_title_length)
     extra = screen.cursor.x - before - max_title_length
-    if extra > 0 and extra + 1 < screen.cursor.x:
+    if extra < 0:
+        screen.draw(' ' * -extra)
+    elif extra > 0 and extra + 1 < screen.cursor.x:
         screen.cursor.x -= extra + 1
         screen.draw('…')
 
@@ -143,7 +131,7 @@ def draw_tab(
         draw_data, screen, extra_data)
 
     # Override kitty's tab length algorithm. We treat this as fixed length.
-    max_title_length = title_length(screen, tab.tab_id, index, sep_width)
+    max_title_length = title_length(screen, index, sep_width)
     max_tab_length = max_title_length + (sep_width if not is_last else 0)
 
     # Early exit for layout-only call
@@ -155,9 +143,6 @@ def draw_tab(
     tab_fg = screen.cursor.fg
     default_bg = as_rgb(int(draw_data.default_bg))
 
-
-    screen.cursor.bg = tab_bg
-
     if max_title_length <= 3:
         screen.draw(' … ')
     else:
@@ -168,8 +153,8 @@ def draw_tab(
     if is_last:
         # Should not happen as we compute tab width such that the tab bar gets
         # completely filled, but if anything weird happens we cover past the
-        # last tab so that the bar's background doesn't show (esp. if the last
-        # tab is active).
+        # last tab so that the bar's background doesn't show (esp. annoying if
+        # the last tab is active).
         if (e := screen.columns - screen.cursor.x) > 0:
             screen.draw(' ' * e)
     elif sep_is_hard:
