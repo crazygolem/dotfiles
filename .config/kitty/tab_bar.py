@@ -1,16 +1,44 @@
-from wcwidth import wcswidth, wcwidth
+"""
+Provides a full-width tab bar, with evenly-sized tabs that don't vary based on
+their content.
 
-from kitty.fast_data_types import Screen, get_boss, get_options
+The tabs' title is split into a status zone aligned to the left, and the title
+zone which gets centered if space permits.
+
+CONFIGURATION
+
+tab_bar_style       custom
+tab_separator       simple|dashed|angled|slanted|rounded|"<1-char>"|"<2n-chars>"
+tab_title_template  "<d><status><d><separator><d><title>"
+
+Where:
+    <1-char>        is a character displayed on a single column.
+    <2n-char>       is a string displayed on an even number of columns and that
+                    can be split in half, with the first half being used for the
+                    "hard" tab separator (on the active tab), and the second
+                    half for the "soft" tab separator (between background tabs).
+    <d>             is a delimiter that does not appear in the status, separator
+                    or title templates.
+    <status>        is a template used for the status zone.
+    <separator>     is a template displayed after the status if the status zone
+                    is not empty.
+    <title>         is a template used for the tab's title.
+"""
+
+from functools import lru_cache
+
+from kitty.fast_data_types import Screen, get_boss, get_options, wcswidth
 from kitty.tab_bar import DrawData, ExtraData, TabBarData, as_rgb
 from kitty.tab_bar import draw_title as kitty_draw_title
 from kitty.tab_bar import safe_builtins
 
 
 # Patch Kitty's tab_bar script to allow extra functions in the title template.
-# `dlen` (Display Length) correctly computes string length for display, where
-# wide characters take up two cells. This makes it easier to correctly compute
-# widths to get fixed tab sizes.
-safe_builtins['dlen'] = wcswidth
+# As Kitty's draw_title function is used to render the title templates, it's
+# easier to inject some helper functions in the title template than attempt to
+# predict what will be rendered to correct for it, track what's been rendered to
+# fix afterwards, or to pre-render the templates ourselves.
+safe_builtins['dlen'] = lru_cache(wcswidth)     # display length
 
 
 separator_symbols: dict[str, tuple[str, str]] = {
@@ -21,14 +49,18 @@ separator_symbols: dict[str, tuple[str, str]] = {
     'rounded':  ('', ''),
 }
 
-# Computes the title length for the current tab, such that all tabs have about
-# the same title size, ensuring that the tab bar is filled exactly.
-# This assumes no separator before the first tab and after the last.
 def title_length(
     screen: Screen,
     index: int, # 1-based
     sep_width: int,
 ) -> int:
+    """
+    Computes the title length for the current tab, such taht all tabs have about
+    the same title size, ensuring that the tab bar is filled exactly.
+    This assumes no separator before the first tab and after the last, and all
+    separators having the same size.
+    """
+
     ntabs = len(get_boss().active_tab_manager.tabs)
     ncols = screen.columns - (ntabs - 1) * sep_width
 
@@ -38,16 +70,30 @@ def title_length(
     width += 1 if (index <= ncols % ntabs) else 0
     return width
 
-# Splits a string at length `n`, considering wide charactes that display on two
-# cells as being of length 2.
+@lru_cache
 def wsplit(s: str, n: int) -> tuple[str, str]:
-    wi = 0
-    for i, c in enumerate(s):
-        if wi >= n:
-            return (s[:i], s[i:])
-        wi += wcwidth(c)
-        if wi > n:
-            raise Exception(f"Index {n} in '{s}' splits the wide character '{c}'.")
+    """
+    Greedily splits a string at column `n`, taking into account wide characters
+    and graphene clusters.
+    """
+
+    if n < 0:
+        return ('', s)
+
+    for i in range(len(s) + 1):
+        l = wcswidth(s[:i])
+        if l < n:
+            continue
+        elif l > n:
+            c = wsplit(s[i-1:], 2)[0]
+            raise Exception(f"Column {n} in '{s}' splits the wide character {c}.")
+
+        for i in range(i, len(s)):
+            l = wcswidth(s[:i+1])
+            if l > n:
+                return (s[:i], s[i:])
+        break
+    return (s, '')
 
 def cfg_separator(
     draw_data: DrawData,
@@ -70,8 +116,6 @@ def cfg_separator(
 
     return (sep is sep_hard, sep, wcswidth(sep), next_tab_bg)
 
-# Wrapper for Kitty's `draw_title` function that aligns the status zone and the
-# title correctly, making sure to preserve the expected tab size.
 def draw_title(
     draw_data: DrawData,
     screen: Screen,
@@ -79,6 +123,12 @@ def draw_title(
     index: int,
     max_title_length: int = 0
 ) -> None:
+    """
+    Wrapper for Kitty's `draw_title` function that aligns the status zone and
+    the title correctly, making sure to preserve the expected tab size.
+    """
+
+    @lru_cache
     def make_title(tpl: str) -> str:
         if tpl is None:
             return None
@@ -97,7 +147,9 @@ def draw_title(
         # changing size, but this can easily be done after the title has been
         # drawn, without having to compute the rendered size of the status or
         # title.
-        return f'{status}{{f"{title}".center(({max_length}) - ({length}) * 2)}}'
+        title = f'{{f"{title}".center(({max_length}) - ({length}) * 2)}}'
+
+        return f'{status}{title}'
 
     draw_data = draw_data._replace(
         title_template = make_title(draw_data.title_template),
@@ -114,9 +166,6 @@ def draw_title(
         screen.draw('…')
 
 
-
-# Draws the tab bar as a fullwidth bar with tabs of equal size.
-# Inspired by Kitty's `draw_tab_with_powerline`.
 def draw_tab(
     draw_data: DrawData,
     screen: Screen,
@@ -127,6 +176,11 @@ def draw_tab(
     is_last: bool,
     extra_data: ExtraData
 ) -> int:
+    """
+    Draw the tab bar as a fullwidth bar with tabs of equals size.
+    Inspired by Kitty's `draw_tab_with_powerline`.
+    """
+
     (sep_is_hard, sep, sep_width, next_tab_bg) = cfg_separator(
         draw_data, screen, extra_data)
 
