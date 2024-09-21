@@ -135,6 +135,27 @@ def draw_title(
 
         (_, status, sep, title, *_) = tpl.split(tpl[0], 5)
 
+        # Disable Kitty's backward compatibility mode "automatically prepend
+        # {bell_symbol} and {activity_symbol} if not present".
+        #
+        # This is necessary because otherwise it breaks the tab bar when a tab
+        # wants to show a missing symbol.
+        #
+        # This is caused by Kitty using `string.Formatter.parse` to check if
+        # they are missing, which parses the `string.format` mini-language, not
+        # the f-string templates that support arbitrary python expressions and
+        # in particular nested f-strings. The format mini-language parser borks
+        # on nested f-strings as soon as a nested interpolation is encountered.
+        # For rendering the template, Kitty evaluates f-strings and does not
+        # rely on `string.format`, so nested f-strings are otherwise not an
+        # issue.
+        #
+        # Adding a noop using those variables solves the issue because Kitty
+        # lazily parses the template until the variables are found, and if they
+        # appear early the routine won't reach nested f-strings where the parser
+        # borks.
+        status = '{"" and bell_symbol and activity_symbol}' + status
+
         status += f'{{f"{sep}" if f"{status}" else ""}}'
         length = f'dlen(f"{status}")'
 
