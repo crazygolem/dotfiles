@@ -5,6 +5,12 @@ their content.
 The tabs' title is split into a status zone aligned to the left, and the title
 zone which gets centered if space permits.
 
+COMPATIBILITY
+
+This plugins requires python >= 3.12, as it relies on some improvements to
+f-strings handling that were introduced with PEP 701, notably quote reuse in
+nested f-strings.
+
 CONFIGURATION
 
 tab_bar_style       custom
@@ -135,6 +141,31 @@ def draw_title(
 
         (_, status, sep, title, *_) = tpl.split(tpl[0], 5)
 
+        # Those variables contain a template, so we can only embed them in the
+        # final template to get evaluated when the tab is rendered. In
+        # particular, their length can't be computd before then (that is,
+        # without evaluating the template ourselves).
+        # To protect the template against whatever f-string embedding Kitty is
+        # doing, and in particular to allow quote reuse, the variables should
+        # always be embedded between braces.
+        status = 'f"""' + status + '"""'
+        sep = 'f"""' + sep + '"""'
+        title = 'f"""' + title + '"""'
+
+        status = f'{{{status}}}{{{sep} if {status} else ""}}'
+        length = f'dlen(f"{status}")'
+
+        # Apply corrections if the title contains wide characters.
+        max_length = f'max_title_length - (dlen({title}) - len({title}))'
+
+        # Status length is removed from left and right of title to avoid status
+        # items causing the title to shift (if there is enough space).
+        # It should then be compensated on the right to avoid the tab itself
+        # changing size, but this can easily be done after the title has been
+        # drawn, without having to compute the rendered size of the status or
+        # title.
+        title = f'{{(_t := {title}).center(({max_length}) - ({length}) * 2)}}'
+
         # Disable Kitty's backward compatibility mode "automatically prepend
         # {bell_symbol} and {activity_symbol} if not present".
         #
@@ -150,27 +181,13 @@ def draw_title(
         # rely on `string.format`, so nested f-strings are otherwise not an
         # issue.
         #
-        # Adding a noop using those variables solves the issue because Kitty
-        # lazily parses the template until the variables are found, and if they
-        # appear early the routine won't reach nested f-strings where the parser
-        # borks.
-        status = '{"" and bell_symbol and activity_symbol}' + status
+        # Adding a noop using those variables at the beginning of the template
+        # solves the issue because Kitty lazily parses the template until the
+        # variables are found, and if they appear early the routine won't reach
+        # nested f-strings where the parser borks.
+        nocompat = '{"" and bell_symbol and activity_symbol}'
 
-        status += f'{{f"{sep}" if f"{status}" else ""}}'
-        length = f'dlen(f"{status}")'
-
-        # Apply corrections if the title contains wide characters.
-        max_length = f'max_title_length - (dlen(f"{title}") - len(f"{title}"))'
-
-        # Status length is removed from left and right of title to avoid status
-        # items causing the title to shift (if there is enough space).
-        # It should then be compensated on the right to avoid the tab itself
-        # changing size, but this can easily be done after the title has been
-        # drawn, without having to compute the rendered size of the status or
-        # title.
-        title = f'{{f"{title}".center(({max_length}) - ({length}) * 2)}}'
-
-        return f'{status}{title}'
+        return nocompat + status + title
 
     draw_data = draw_data._replace(
         title_template = make_title(draw_data.title_template),
