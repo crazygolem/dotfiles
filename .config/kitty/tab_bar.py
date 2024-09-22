@@ -127,7 +127,7 @@ def draw_title(
     screen: Screen,
     tab: TabBarData,
     index: int,
-    max_title_length: int = 0
+    title_length: int = 0
 ) -> None:
     """
     Wrapper for Kitty's `draw_title` function that aligns the status zone and
@@ -143,20 +143,19 @@ def draw_title(
 
         # Those variables contain a template, so we can only embed them in the
         # final template to get evaluated when the tab is rendered. In
-        # particular, their length can't be computd before then (that is,
-        # without evaluating the template ourselves).
+        # particular, their length can't be computd before ahead of time (that
+        # is, without evaluating the template ourselves).
         # To protect the template against whatever f-string embedding Kitty is
         # doing, and in particular to allow quote reuse, the variables should
-        # always be embedded between braces.
+        # always be embedded in an expression component in the final template.
         status = 'f"""' + status + '"""'
         sep = 'f"""' + sep + '"""'
         title = 'f"""' + title + '"""'
 
-        status = f'{{{status}}}{{{sep} if {status} else ""}}'
-        length = f'dlen(f"{status}")'
+        status = f'{{(_s := (_s := {status}) + ({sep} if _s else ""))}}'
 
         # Apply corrections if the title contains wide characters.
-        max_length = f'max_title_length - (dlen({title}) - len({title}))'
+        max_length = 'max_title_length - (dlen(_t) - len(_t))'
 
         # Status length is removed from left and right of title to avoid status
         # items causing the title to shift (if there is enough space).
@@ -164,7 +163,7 @@ def draw_title(
         # changing size, but this can easily be done after the title has been
         # drawn, without having to compute the rendered size of the status or
         # title.
-        title = f'{{(_t := {title}).center(({max_length}) - ({length}) * 2)}}'
+        title = f'{{(_t := {title}).center(({max_length}) - dlen(_s) * 2)}}'
 
         # Disable Kitty's backward compatibility mode "automatically prepend
         # {bell_symbol} and {activity_symbol} if not present".
@@ -195,8 +194,8 @@ def draw_title(
     )
 
     before = screen.cursor.x
-    kitty_draw_title(draw_data, screen, tab, index, max_title_length)
-    extra = screen.cursor.x - before - max_title_length
+    kitty_draw_title(draw_data, screen, tab, index, title_length)
+    extra = screen.cursor.x - before - title_length
     if extra < 0:
         screen.draw(' ' * -extra)
     elif extra > 0 and extra + 1 < screen.cursor.x:
