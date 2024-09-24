@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# Returns the list of visible windows as a match string.
+# Includes the 'state:self' window, which will be used for the overlay and thus
+# become 'state:overlay_parent'; it must be filtered out in the broadcast match.
+tops() {
+    kitten @ ls \
+    | jq -r '
+        [ .[] | select(.is_focused)
+        | .tabs[] | select(.is_focused)
+        | .groups[].windows[-1]
+        | "id:" + (. | tostring)
+        ] | join(" or ")
+        '
+}
+
+#printf "echo '%s'" "$(tops)" \
+#| kitten @ send-text --stdin -m state:self
+
+kitten @ launch --type overlay --allow-remote-control \
+  kitty +kitten broadcast \
+    --match "state:parent_focused and not state:overlay_parent and ($(tops))"
