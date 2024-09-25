@@ -15,10 +15,29 @@ tops() {
     || exit
 }
 
-#printf "echo '%s'" "$(tops)" \
-#| kitten @ send-text --stdin -m state:self
+# Returns the top window in the self group.
+selftop() {
+    kitten @ ls --self \
+    | jq -r '
+        .[] | select(.is_focused)
+        | .tabs[] | select(.is_focused)
+        | ([ .windows[].id | if length != 1 then error end ][0]) as $self
+        | .groups[]
+        | select(.windows | any(. == $self))
+        | .windows[-1]
+        | "id:" + (. | tostring)
+        ' \
+    || exit
+}
+
+# Starting the broadcast again when in the broadcast window should not launch a
+# new broadcast on top of the existing one, but instead replace it. The effect
+# is that the broadcast continues, but the list of target windows is refreshed
+# to include windows that were opened since the last broadcast launch.
+kitten @ send-key --match "var:is_broadcast and $(selftop)" ctrl+esc
 
 kitten @ launch --no-response --type overlay --allow-remote-control \
+    --var is_broadcast=1 \
     --watcher ./broadcast_settheme.py \
     kitty +kitten broadcast \
         --match "state:parent_focused and not state:overlay_parent and ($(tops))"
