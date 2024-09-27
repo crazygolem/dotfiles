@@ -1,59 +1,116 @@
 #!/bin/sh
 
-# As of kitty 0.36.3, `kitten @ ls` reports an incorrect self window for scripts
-# launched in the background, e.g. with `remote_control_script`: the window is
-# always id:1 if it exists, and otherwise no window is self.
-# Use `launch --type background --allow-remote-control` (it doesn't work with
-# `remote_control_script`) with the special argument `@active-kitty-window-id`.
-self="${1:?}"
+# Wrapper for the `broadcast` kitten that uses an overlay in the current window
+# to broadcast from, and only broadcasts to visible windows in the current tab.
+#
+# The list of broadcast targets is not updated when new windows (including
+# overlays) are created, as it doesn't seem currently possible to react to such
+# events. But the wrapper can be called again in a broadcast window that it
+# created to "refresh" it.
+#
+# INSTALLATION
+#
+# You need the following files in your kitty config directory:
+# - broadcast (this file): The wrapper. Make this file executable.
+# - broadcast_settheme.py: Allows you to change theme options when broadcasting.
+# - theme-broadcast.conf: The theme to apply when broadcasting.
+#
+# In addition, you need to have `jq` installed on your system.
+#
+# CONFIGURATION
+#
+# Add a key mapping to your `kitty.conf`:
+#
+#    map f4 launch --type background --allow-remote-control ~/.config/kitty/broadcast @active-kitty-window-id
+#
+# You can then hit F4 on your keyboard in a window to turn it into a
+# broadcasting window.
 
-# Returns the list of visible windows as a match string.
-# Does not include the self window (which would become the overlay_parent after
-# the broadcast is launched).
+set -e
+
+# As of kitty 0.36.3, `kitten @ ls` reports the self window inconsistently for
+# scripts launched in the background, and the `--self` option and `state:self`
+# match expression are also impacted. It can also fix itself after some time,
+# making it difficult to pin down.
+# Scripts can be launched in the background with `remote_control_script` and
+# `launch --type background`.
+#
+# To work around this, use `launch --type background --allow-remote-control` and
+# pass the special argument `@active-kitty-window-id` [1] (it is not resolved
+# when used with `remote_control_script`).
+#
+# Note: `@active-kitty-window-id` apparently always resolves to the non-overlay
+# window, what does "active" even mean (╯°□°)╯︵ ┻━┻. Anyway it doesn't matter,
+# that's thankfully what we need for this script to work.
+#
+# [1]: https://sw.kovidgoyal.net/kitty/launch/#special-arguments
+SELF="${1:?Missing @active-kitty-window-id argument}"
+
+# Returns the list of visible windows as a match string. Includes the self
+# window that will become overlay_parent after the broadcast kitten has been
+# launched, so it must be excluded afterwards (it simplifies the handling of
+# some edge cases).
 tops() {
     kitten @ ls \
-    | jq -r --argjson self "$self" '
+    | jq -r '
         [ .[] | select(.is_focused)
         | .tabs[] | select(.is_focused)
-        #| ([ .windows[] | select(.is_self) | .id ]
-        #  | if length != 1 then error end | .[0]
-        #  ) as $self
         | .groups[]
-        | select(.windows | any(. == $self) | not)
         | .windows[-1]
-        | "id:" + (. | tostring)
+        | "id:\(.)"
         ] | join(" or ")
-        ' \
-    || exit
+        '
 }
 
 # Returns the top window in the self group.
 selftop() {
     kitten @ ls \
-    | jq -r --argjson self "$self" '
+    | jq -r --argjson self "$SELF" '
         .[] | select(.is_focused)
         | .tabs[] | select(.is_focused)
-        #| ([ .windows[].id ]
-        #  | if length != 1 then error end | .[0]
-        #  ) as $self
-        | .groups[]
-        | select(.windows | any(. == $self))
+        | .groups[] | select(.windows | any(. == $self))
         | .windows[-1]
-        | "id:" + (. | tostring)
-        ' \
-    || exit
+        | "id:\(.)"
+        '
+}
+
+# Resolves an arbitrary match expression to a match expression containing only a
+# list of windows.
+resolve() {
+    kitten @ ls --match "${1:?}" 2>/dev/null \
+    | jq -r '
+        [ .[] | select(.is_focused)
+        | .tabs[] | select(.is_focused)
+        | .windows[].id
+        | "id:\(.)"
+        ] | join(" or ")
+        '
 }
 
 # Starting the broadcast again when in the broadcast window should not launch a
 # new broadcast on top of the existing one, but instead replace it. The effect
 # is that the broadcast continues, but the list of target windows is refreshed
 # to include windows that were opened since the last broadcast launch.
-kitten @ send-key \
-    --match "state:parent_focused and var:broadcast_to and $(selftop)" \
-    ctrl+esc
+kitten @ send-key --match "var:broadcast_to and $(selftop)" ctrl+esc
 
-targets="state:parent_focused and not var:broadcast_to and ($(tops))"
+# `id:$SELF` is currently a top, but will become the `overlay_parent` after the
+# broadcast has been launched, so it must be explicitly excluded. Other
+# broadcasting windows are excluded via the `broadcast_to` user variable, and
+# the broadcasting window created by the broadcast kitten gets always excluded
+# automatically.
+#
+# Notes:
+# - `tops` might return the window id of the previous broadcast overlay if there
+#   was one, because we don't wait long enough after sending the keys. It
+#   doesn't matter as the id shouldn't be reused so soon after closing the
+#   window.
+# - `resolves` returns nothing if there is no matching window, but this is
+#   interpreted by kitty's matching routine to mean `all`, and the same happen
+#   with an invalid match expression such as 'none' (as opposed to a valid, non-
+#   empty match expression that matches nothing).
+targets="not (id:$SELF or var:broadcast_to) and ($(tops))"
+targets="$(resolve "$targets")"
 kitten @ launch --no-response --type overlay --allow-remote-control \
-    --var broadcast_to="$targets" \
+    --var broadcast_to="${targets:-none}" \
     --watcher ./broadcast_settheme.py \
-    kitty +kitten broadcast --match "$targets"
+    kitty +kitten broadcast --match "${targets:-id:0 and not id:0}"
