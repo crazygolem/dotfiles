@@ -1,0 +1,158 @@
+#!/bin/bash
+
+set -eo pipefail
+
+### USAGE #####################################################################
+read -r -d '' USAGE <<'EOF' || true
+A REPL for JQ
+
+Interactively explore and filter JSON documents with jq and fzf.
+
+To following key bindings are configured in addition fzf's default ones:
+
+    up/down     Navigate between the JQ path suggestions
+    tab         Select a JQ path suggestion
+    ctrl-r      Reload the input
+    enter       Close jq-repl and output the filtered input
+    alt-enter   Close jq-repl and output the JQ path
+
+USAGE
+    jq-repl
+        Reads input JSON from stdin.
+
+    jq-repl FILE
+        Reads input JSON from file.
+
+    jq-repl CMD ARG...
+    jq-repl -c CMD
+        Executes a command and use its output.
+        If the command does not have arguments, the -c option must be used to
+        disambiguate from the calling form that takes a file argument.
+
+    jq-repl -h
+        Prints help and exits.
+
+    jq-repl -# ...
+        Used internally and not meant to be called directly.
+
+EOF
+###############################################################################
+
+paths() {
+    jq -r '
+        [ path(..)
+        | map(
+            if type == "string" and test("^[_A-Za-z][_A-Za-z0-9]*$") then
+              ".\(.)"
+            elif type == "string" then
+              "[\(tojson)]"
+            elif type == "number" then
+                "[]"
+            end
+          ) | join("") | if startswith(".") then . else ".\(.)" end
+        ] | sort | unique | .[]
+        ' || true
+}
+
+filter() {
+    local input="$1"
+    local wd="$2"
+    local query="$3"
+
+    local cache="$wd/cache.json"
+    local tmp="$cache.tmp"
+
+    red() { sed "s/.*/$(tput setaf 1)&$(tput sgr0)/"; }
+    filter() { jq --color-output "$query" 2> >(red); }
+    ensurejson() {
+        2> >(red >&2) jq -Rsr '
+            try (. as $in | fromjson | $in)
+            catch (null | halt_error(88))
+            '
+    }
+
+    if ensurejson <"$input" | filter | tee "$tmp"; then
+        mv "$tmp" "$cache"
+    elif (( PIPESTATUS[0] == 88 )); then
+        printf '%s\n' \
+            "###########################" \
+            "# Input is not valid JSON #" \
+            "###########################" \
+            "" \
+        | red
+        cat "$input"
+        rm "$tmp"
+    else
+        cat "$cache"
+        rm "$tmp"
+    fi
+}
+
+shq() {
+    local str
+    printf -v str -- " %q" "$@"
+    echo "${str:1}"
+}
+
+while getopts ':#:hc' opt; do
+    case "$opt" in
+        c)  FORCE_CMD=1 ;;
+        h)  echo "$USAGE"; exit 0 ;;
+        \#) shift 2
+            case "$OPTARG" in
+                filter) filter "$@"; exit ;;
+                paths)  paths "$@"; exit ;;
+                *)      exit 2 ;;
+            esac
+            ;;
+        \?) >&2 printf '%s\n' \
+                "$(basename "$0"): Invalid option: $OPTARG." \
+                "Use -h to get usage."
+            exit 1
+            ;;
+        *) exit 2 ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+WD="$(mktemp -d --suffix=.jq-repl)"
+trap 'rm -rf "$WD"' EXIT
+
+case $#-${FORCE_CMD:-0} in
+    0-*)
+        input="$WD/input.json"
+        cat >"$input"
+        printf -v reload_cmd '%q -# paths <%q' "$0" "$input"
+        ;;
+    1-0)
+        input="$1"
+        printf -v reload_cmd '%q -# paths <%q' "$0" "$input"
+        ;;
+    *)  input="$WD/input.json"
+        touch "$input"
+        printf -v reload_cmd '%s >%q 2>&1; %q -# paths <%q' \
+            "$(shq "$@")" "$input" "$0" "$input"
+        ;;
+esac
+
+printf -v filter_cmd '%q -# filter %q %q {q}' \
+    "$0" "$input" "$WD"
+
+args=(
+    --preview           "$filter_cmd"
+    --preview-window    down:90%
+    --height            -2
+    --query             .
+    --bind              tab:replace-query
+    --bind              return:become:"$filter_cmd"
+    --bind              alt-return:print-query
+    --bind              ctrl-r:reload:"$reload_cmd"
+
+    # fzf runs the command in $FZF_DEFAULT_COMMAND at startup only if stdin is a
+    # tty, which is notably not the case when input is piped into this script,
+    # which then executes fzf.
+    # So instead we execute the command providing the input on the start event.
+    --bind              start:reload:"$reload_cmd"
+)
+
+fzf "${args[@]}"
