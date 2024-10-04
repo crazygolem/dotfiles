@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# Decode a JWT's JSON parts.
+# 
+# USAGE
+# 
+#   jwt
+#     Reads an encoded JWT from stdin and decodes its JSON parts.
+#
+#   jwt JQ-EXPR
+#     Reads a JSON from stdin, filters it with the specified JQ expression, and
+#     treat the result as a JWT to decode.
+#     This calling form is useful if the JWT token is embedded in a JSON
+#     document.
+
+jq -Rr "${1:-.}" \
+| jq -Rr '
+  split(".")
+  | .[]
+  | . as $val
+  | try (@base64d | fromjson)
+    catch $val
+  '
