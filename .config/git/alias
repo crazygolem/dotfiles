@@ -1,0 +1,12 @@
+[alias]
+  permission-reset = "!f(){ git diff -p -R | grep -E \"^(diff|(old|new) mode)\" | git apply; }; f"
+  graph = log --oneline --decorate --all --graph
+  sdiff = diff --ignore-space-at-eol -b -w --ignore-blank-lines
+  tracked = "!f(){ git -C \"$GIT_PREFIX\" ls-tree -r HEAD --name-only \"${@:-$PWD}\"; }; f"
+  untracked = "!f(){ git -C \"$GIT_PREFIX\" ls-files --others --exclude-standard \"$@\"; }; f"
+  ignored = "!f(){ git -C \"$GIT_PREFIX\" status --short --ignored \"$@\" | grep \"^!!\"; }; f"
+  hide = update-index --skip-worktree
+  unhide = update-index --no-skip-worktree
+  hidden = "!f(){ git -C \"$GIT_PREFIX\" ls-files -v \"${@:-$PWD}\" | grep \"^[S[:lower:]]\"; }; f"
+  root = rev-parse --show-toplevel
+  diffs = diff --staged

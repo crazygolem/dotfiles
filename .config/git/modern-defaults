@@ -1,0 +1,40 @@
+# Adapted from https://blog.gitbutler.com/how-git-core-devs-configure-git/
+
+[branch]
+        sort = -committerdate
+[column]
+        ui = auto
+[commit]
+        verbose = true
+[core]
+        #fsmonitor = true
+        #untrackedcache = true
+[diff]
+        algorithm = histogram
+        colormoved = plain
+        mnemonicprefix = true
+        renames = true
+[fetch]
+        prune = true
+        prunetags = true
+        all = true
+[help]
+        autocorrect = prompt
+[init]
+        defaultbranch = main
+[merge]
+        # (just 'diff3' if git version < 2.3)
+        conflictstyle = zdiff3
+[push]
+        default = simple
+        autosetupremote = true
+        followtags = true
+[rebase]
+        autosquash = true
+        autostash = true
+        updaterefs = true
+[rerere]
+        enabled = true
+        autoupdate = true
+[tag]
+        sort = version:refname
