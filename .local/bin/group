@@ -1,0 +1,5 @@
+#!/bin/sh
+
+SIZE="${1:?}"
+DELIM="${2:- }"
+fold -w "$SIZE" | paste -sd "$DELIM"
