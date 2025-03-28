@@ -1,0 +1,79 @@
+#!/bin/bash
+
+### USAGE ######################################################################
+read -r -d '' USAGE <<'EOF'
+Shows compatibility of installed GNOME extensions with GNOME Shell versions.
+
+USAGE
+
+    gext-compat [VERSION]
+        Lists all installed extensions and their shell-version compatibility
+        list, highlighting the current shell version. If VERSION is specified,
+        that version gets highlighted instead of the current shell version.
+
+    gext-compat -h
+        Shows this help and exits.
+EOF
+################################################################################
+
+while getopts 'h' opt; do
+  case "$opt" in
+  \?) exit 1 ;;
+  h) echo "$USAGE"; exit 0 ;;
+  esac
+done
+shift $((OPTIND-1))
+
+version="${1:-$(gnome-extensions version)}"
+
+check() {
+    local ext="$1"
+    local path versions
+
+    path="$(
+        LC_ALL=C gnome-extensions info "$ext" \
+        | grep -Eo '^\s*Path: (/.*)$' \
+        | sed -E 's/^\s*Path:\s*//'
+    )"
+
+    versions="$(
+        jq -r \
+            --arg version "$version" \
+            --arg cm "$(tput setaf 2)" \
+            --arg cx "$(tput setaf 1)" \
+            --arg cr "$(tput sgr0)" \
+            '
+            def colorize:
+                if . == $version or . == ($version | tonumber | floor | tostring)
+                then $cm + . + $cr
+                else $cx + . + $cr
+                end
+                ;
+
+            .["shell-version"]
+            | sort_by(. | split(".") | map(tonumber)) | reverse
+            | map(. | colorize)
+            | join(", ")
+            ' \
+            "$path"/metadata.json
+        )"
+
+        printf '  %s\t%s\n' "$ext" "$versions"
+}
+
+{
+    echo ACTIVE
+    for ext in $(gnome-extensions list --enabled --active | sort); do
+        check "$ext"
+    done
+
+    echo INACTIVE
+    for ext in $(gnome-extensions list --enabled --inactive | sort); do
+        check "$ext"
+    done
+
+    echo DISABLED
+    for ext in $(gnome-extensions list --disabled | sort); do
+        check "$ext"
+    done
+} | column -t -s $'\t'
