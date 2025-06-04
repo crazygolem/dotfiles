@@ -24,6 +24,8 @@ def alg(value):
 
 
 def salt(value):
+    if len(value) < 22:
+        value = value + '.' * (22 - len(value))
     if invalid := set(value) - set('./ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'):
         raise argparse.ArgumentTypeError(f"Invalid characters: {''.join(sorted(invalid))}")
     if (length := len(value)) != 22:
@@ -37,7 +39,7 @@ parser = argparse.ArgumentParser(description="Generate bcrypt hashes.")
 parser.add_argument('input', type=str, nargs='?',
                     help="String to hash. If omitted, the input is read from stdin.")
 parser.add_argument('--salt', '-s', type=salt,
-                    help="A string of 22 characters (A-Z, a-z, 0-9, '.' and '/') ending with '.', 'O', 'e' or 'u'.")
+                    help="A string of max 22 characters (A-Z, a-z, 0-9, '.' and '/') ending with '.', 'O', 'e' or 'u'.")
 parser.add_argument('--cost', '-c', metavar='N', type=cost,
                     # Note: the bcrypt lib incorrectly names this argument 'rounds', but internally uses it as a 'cost'.
                     # Note: for the bcrypt algorithm, rounds = 2^cost
