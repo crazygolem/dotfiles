@@ -2,6 +2,7 @@
 
 import argparse
 import bcrypt
+import inspect
 import sys
 
 
@@ -15,9 +16,9 @@ def cost(value):
 def alg(value):
     match value:
         case '2a' | '$2a$':
-            return '2a'
+            return b'2a'
         case '2b' | '$2b$':
-            return '2b'
+            return b'2b'
         case _:
             raise argparse.ArgumentTypeError("Supported algorithms are '2a' and '2b'.")
 
@@ -38,10 +39,12 @@ parser.add_argument('input', type=str, nargs='?',
 parser.add_argument('--salt', '-s', type=salt,
                     help="A string of 22 characters (A-Z, a-z, 0-9, '.' and '/') ending with '.', 'O', 'e' or 'u'.")
 parser.add_argument('--cost', '-c', metavar='N', type=cost,
-                    default=bcrypt.gensalt.__defaults__[0],
+                    # Note: the bcrypt lib incorrectly names this argument 'rounds', but internally uses it as a 'cost'.
+                    # Note: for the bcrypt algorithm, rounds = 2^cost
+                    default=inspect.signature(bcrypt.gensalt).parameters['rounds'].default or 12,
                     help="A number between 4 and 31, influencing the number of rounds.")
 parser.add_argument('--algorithm', '-a', metavar='ALG', type=alg,
-                    default=bcrypt.gensalt.__defaults__[1].decode('utf-8'),
+                    default=inspect.signature(bcrypt.gensalt).parameters['prefix'].default or b'2b',
                     help="The version of the hash algorithm to use. Only '2a' and '2b' are supported.")
 parser.add_argument('--verbose', '-v', action='store_true',
                     help="Also print the parameters by themselves after the final output.")
@@ -51,14 +54,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.salt:
-        salt = f'${args.algorithm}${args.cost:02}${args.salt}'.encode('utf-8')
+        salt = f'${args.algorithm.decode()}${args.cost:02}${args.salt}'.encode()
     else:
-        salt = bcrypt.gensalt(rounds=args.cost, prefix=args.algorithm.encode('utf-8'))
+        salt = bcrypt.gensalt(rounds=args.cost, prefix=args.algorithm)
 
     if args.input is not None:
-        input = args.input.encode('utf-8')
+        input = args.input.encode()
     else:
-        input = sys.stdin.read().encode('utf-8')
+        input = sys.stdin.read().encode()
 
     # The bcrypt module has this limit (on my system?)
     # https://security.stackexchange.com/a/39851
@@ -68,6 +71,6 @@ if __name__ == "__main__":
     hash = bcrypt.hashpw(input, salt)
 
     if args.verbose:
-        print(hash.decode('utf-8'), salt.decode('utf-8'))
+        print(hash.decode(), salt.decode())
     else:
-        print(hash.decode('utf-8'))
+        print(hash.decode())
