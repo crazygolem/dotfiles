@@ -1,0 +1,37 @@
+#!/bin/bash
+
+### USAGE ######################################################################
+read -r -d '' USAGE <<'EOF'
+URL encode or decode data and print to standard output
+
+USAGE
+
+    urlenc [OPTION]... [FILE]
+
+        URL-encode (default) or URL-decode FILE to standard output.
+        With no FILE, or when FILE is -, read from standard input.
+
+OPTIONS
+
+    -h    Print this help and exit.
+    -d    Decode data instead of encoding it. Requires jq 1.8 or higher.
+    -n    Remove the final newline (if any) before encoding.
+EOF
+################################################################################
+
+while getopts 'dnh' opt; do
+    case "$opt" in
+    d) decode=1 ;; # Requires jq 1.8, cf. https://github.com/jqlang/jq/pull/3161
+    n) stripnl=1 ;;
+    h) echo "$USAGE"; exit 0 ;;
+    ?) exit 1 ;;
+    esac
+done
+shift $((OPTIND-1))
+
+if [ $# -gt 1 ]; then
+  >&2 echo "Too many arguments"
+  exit 1
+fi
+
+jq -sRr "${stripnl:+rtrimstr(\"\n\") | }@uri${decode:+d}" "$@"
