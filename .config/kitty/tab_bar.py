@@ -105,7 +105,7 @@ def cfg_separator(
     draw_data: DrawData,
     screen: Screen,
     extra_data: ExtraData
-) -> tuple[str, bool]:
+) -> tuple[bool, str, int, int]:
     sep_cfg = get_options().tab_separator
     sep_hard, sep_soft = separator_symbols.get(sep_cfg) or (
         ('▌', sep_cfg) if (l := wcswidth(sep_cfg)) == 1
@@ -143,8 +143,8 @@ def draw_title(
 
         # Those variables contain a template, so we can only embed them in the
         # final template to get evaluated when the tab is rendered. In
-        # particular, their length can't be computd before ahead of time (that
-        # is, without evaluating the template ourselves).
+        # particular, their length can't be computd ahead of time (that is,
+        # without evaluating the template ourselves).
         # To protect the template against whatever f-string embedding Kitty is
         # doing, and in particular to allow quote reuse, the variables should
         # always be embedded in an expression component in the final template.
