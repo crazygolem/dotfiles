@@ -61,7 +61,7 @@ def title_length(
     sep_width: int,
 ) -> int:
     """
-    Computes the title length for the current tab, such taht all tabs have about
+    Computes the title length for the current tab, such that all tabs have about
     the same title size, ensuring that the tab bar is filled exactly.
     This assumes no separator before the first tab and after the last, and all
     separators having the same size.
