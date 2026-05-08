@@ -7,6 +7,8 @@ Show all the certificates served from a domain.
 USAGE
 
     showcerts [OPTIONS...] DOMAIN[:PORT]
+    showcerts [OPTIONS...] URL
+    showcerts -f [OPTIONS...] [FILE...]
 
 OPTIONS
 
@@ -42,8 +44,10 @@ done
 if (( FROMFILES )); then
   cat "$@"
 else
-  DOMAIN="$(echo "$1" | cut -d: -f1)"
-  PORT="$(echo "$1" | cut -s -d: -f2)"
+  HOSTPORT="${1#*://}"
+  HOSTPORT="${HOSTPORT%%/*}"
+  DOMAIN="${HOSTPORT%%:*}"
+  [[ "$HOSTPORT" == *:* ]] && PORT="${HOSTPORT##*:}" || PORT=""
 
   args=(
     -connect "${DOMAIN}:${PORT:-443}"
