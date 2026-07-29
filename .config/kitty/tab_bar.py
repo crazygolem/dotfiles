@@ -36,15 +36,6 @@ from functools import lru_cache
 from kitty.fast_data_types import Screen, get_boss, get_options, wcswidth
 from kitty.tab_bar import DrawData, ExtraData, TabBarData, as_rgb
 from kitty.tab_bar import draw_title as kitty_draw_title
-from kitty.tab_bar import safe_builtins
-
-
-# Patch Kitty's tab_bar script to allow extra functions in the title template.
-# As Kitty's draw_title function is used to render the title templates, it's
-# easier to inject some helper functions in the title template than attempt to
-# predict what will be rendered to correct for it, track what's been rendered to
-# fix afterwards, or to pre-render the templates ourselves.
-safe_builtins['dlen'] = lru_cache(wcswidth)     # display length
 
 
 separator_symbols: dict[str, tuple[str, str]] = {
@@ -155,7 +146,7 @@ def draw_title(
         status = f'{{(_s := (_s := {status}) + ({sep} if _s else ""))}}'
 
         # Apply corrections if the title contains wide characters.
-        max_length = 'max_title_length - (dlen(_t) - len(_t))'
+        max_length = 'max_title_length - (wcswidth(_t) - len(_t))'
 
         # Status length is removed from left and right of title to avoid status
         # items causing the title to shift (if there is enough space).
@@ -163,7 +154,7 @@ def draw_title(
         # changing size, but this can easily be done after the title has been
         # drawn, without having to compute the rendered size of the status or
         # title.
-        title = f'{{(_t := {title}).center(({max_length}) - dlen(_s) * 2)}}'
+        title = f'{{(_t := {title}).center(({max_length}) - wcswidth(_s) * 2)}}'
 
         # Disable Kitty's backward compatibility mode "automatically prepend
         # {bell_symbol} and {activity_symbol} if not present".
