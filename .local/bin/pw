@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# Generates a secure random password with groups of 4 or 5 characters to help
+# with spelling and manual input.
+
+l="${1:?LENGTH missing}"
+g=5
+[ $(( (l - 1) % 4 > (l - 1) % 5 )) -eq 1 ] && g=4
+
+pwgen -s "$l" 1 | group "$g" -
