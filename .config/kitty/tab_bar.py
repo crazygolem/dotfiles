@@ -48,6 +48,7 @@ separator_symbols: dict[str, tuple[str, str]] = {
 
 def title_length(
     screen: Screen,
+    os_window_id: int,
     index: int, # 1-based
     sep_width: int,
 ) -> int:
@@ -58,7 +59,9 @@ def title_length(
     separators having the same size.
     """
 
-    ntabs = len(get_boss().active_tab_manager.tabs)
+    # Not using the active tab manager, as tab bars of unfocused OS windows get
+    # redrawn too.
+    ntabs = len(get_boss().os_window_map[os_window_id].tabs)
     ncols = screen.columns - (ntabs - 1) * sep_width
 
     width = ncols // ntabs
@@ -213,7 +216,7 @@ def draw_tab(
         draw_data, screen, extra_data)
 
     # Override kitty's tab length algorithm. We treat this as fixed length.
-    max_title_length = title_length(screen, index, sep_width)
+    max_title_length = title_length(screen, draw_data.os_window_id, index, sep_width)
     max_tab_length = max_title_length + (sep_width if not is_last else 0)
 
     # Early exit for layout-only call
