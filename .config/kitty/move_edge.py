@@ -14,7 +14,14 @@ of the tab, the left/top one is moved instead, still in the arrow's direction.
 COMPATIBILITY
 
 Requires kitty 0.50.0 or later, for the `resize-window-edge` remote control
-command. Mapped kittens can use it without `allow_remote_control`.
+command.
+
+INSTALLATION
+
+Put this file in your kitty config directory.
+
+Remote control doesn't need to be enabled in kitty.conf (`allow_remote_control`):
+the kitten runs inside kitty and calls the remote control command directly.
 
 CONFIGURATION
 
