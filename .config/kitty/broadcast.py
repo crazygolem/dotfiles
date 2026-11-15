@@ -25,6 +25,12 @@ The broadcast window can't contain messages such as the broadcast status or
 instructions. The initial message disappears as soon as you start typing
 something, leaving the window empty.
 
+The broadcast theme's tab bar colors (e.g. the active tab's or the tab bar
+margin's) apply to all OS windows of the same kitty process (e.g. new OS windows
+created with the ctrl+shift+n shortcut). The cursor's colors are set for each
+broadcast target window, so the cursor colors can be used to identify broadcast
+targets while the broadcast dock has the focus.
+
 COMPATIBILITY
 
 Requires kitty 0.50.0 or later, for docked windows.
@@ -41,7 +47,8 @@ INSTALLATION
 You need the following files in your kitty config directory:
 - broadcast.py (this file): The wrapper, as well as the watchers that apply the
   theme to the broadcast dock and handle the follow mode.
-- theme-broadcast.conf: The theme to apply when broadcasting.
+- theme-broadcast.conf: The theme to apply when broadcasting. Its `cursor` and
+  `cursor_text_color` settings also apply to the cursor of the target windows.
 
 Remote control doesn't need to be enabled in kitty.conf (`allow_remote_control`):
 the kitten and the watchers run inside kitty and call remote control commands
@@ -69,6 +76,7 @@ Restart kitty after adding it (see the WATCHERS section):
 
 import json
 import os
+import re
 import secrets
 import sys
 from time import monotonic
@@ -85,6 +93,10 @@ from kitty.window import Window
 # be resolved with respect to kitty's working directory, not the config
 # directory.
 THEME_FILE = 'theme-broadcast.conf'
+
+# The settings of the theme that are also applied to the target windows, whose
+# cursor kitty shows while the dock has the focus.
+CURSOR_SETTINGS = ('cursor', 'cursor_text_color')
 
 # The keys that toggle hiding the input and end the session in the broadcast
 # kitten. They are passed to the kitten explicitly, so that pressing them for
@@ -264,6 +276,10 @@ def is_broadcasting(user_vars: dict[str, str]) -> bool:
 def match_ids(window_ids: Iterable[int]) -> str:
     return ' or '.join(f'id:{i}' for i in window_ids)
 
+# The window ids of a match expression made by match_ids.
+def ids_in_match(match: str) -> set[int]:
+    return {int(i) for i in re.findall(r'\bid:(\d+)', match)}
+
 # The visible windows in the tab: the top window of every group, except for
 # docks (the broadcast dock, but also status bars, file trees, etc.) and
 # broadcasting windows. The window the mapping was triggered in is included, as
@@ -279,15 +295,24 @@ def visible_targets(tab: dict[str, Any]) -> list[int]:
             and not is_broadcasting(user_vars.get(g['windows'][-1], {}))
     ]
 
-# The window that has the focus, like the `state:focused` match expression: the
-# active window of the active tab of the last focused OS window.
+# The window that has the keyboard focus, if kitty has it: the active window of
+# the active tab of the focused OS window.
 def focused_window(os_windows: list[dict[str, Any]]) -> dict[str, Any] | None:
     for o in os_windows:
-        if o['last_focused']:
+        if o['is_focused']:
             for t in o['tabs']:
                 if t['is_active']:
                     return next((w for w in t['windows'] if w['is_active']), None)
     return None
+
+# The targets of a broadcast dock that still exist: the windows with its token
+# with --follow, or the windows of its match expression otherwise.
+def current_targets(os_windows: list[dict[str, Any]], dock_user_vars: dict[str, str]) -> list[int]:
+    windows = [w for t in tabs_of(os_windows) for w in t['windows']]
+    if token := dock_user_vars.get(FOLLOW_VAR):
+        return [w['id'] for w in windows if w['user_vars'].get(TARGET_VAR) == token]
+    ids = ids_in_match(dock_user_vars.get(BROADCASTING_VAR, ''))
+    return [w['id'] for w in windows if w['id'] in ids]
 
 def set_user_var(boss: Boss, window_ids: Iterable[int], name: str, value: str | None) -> None:
     var = name if value is None else f'{name}={value}'
@@ -372,36 +397,46 @@ def on_focus_change(boss: Boss, window: Window, data: dict[str, Any]) -> None:
         if FOLLOW_VAR in user_vars:
             following_docks.add(window.id)
             refresh_followed_targets(boss)
+        color_target_cursors(boss, list_os_windows(boss), user_vars)
         return
 
-    # `set-colors --reset` resets all windows and the tab bars, not just this
-    # window. Skip it when another broadcasting window has the focus, e.g. the
-    # dock replacing this one when the broadcast is refreshed, as this window
-    # can lose the focus or close after that one applied the theme.
-    focused = focused_window(list_os_windows(boss))
-    if focused is not None and focused['id'] != window.id and is_broadcasting(focused['user_vars']):
-        return
+    reset_theme(boss, window.id)
 
-    boss.call_remote_control(window, (
-        'set-colors', f'--match=id:{window.id}', '--reset',
-    ))
-
+# kitty calls on_close after forgetting the window (`boss.window_id_map`), but
+# before removing it from its tab. Until then, remote control commands with a
+# match expression fail, as kitty can't look up all the windows of the tabs. So
+# the clean up is done in the next tick of the event loop.
 def on_close(boss: Boss, window: Window, data: dict[str, Any]) -> None:
     user_vars = window_user_vars(window)
     if not is_broadcasting(user_vars):
         return
-
-    # Clean up the targets of a broadcast with --follow
     following_docks.discard(window.id)
-    if token := user_vars.get(FOLLOW_VAR):
-        targets = [
-            w['id'] for t in tabs_of(list_os_windows(boss)) for w in t['windows']
-                if w['user_vars'].get(TARGET_VAR) == token
-        ]
-        if targets:
-            set_user_var(boss, targets, TARGET_VAR, None)
 
-    on_focus_change(boss, window, {'focused': False})
+    def clean_up() -> None:
+        # Clean up the targets of a broadcast with --follow
+        if token := user_vars.get(FOLLOW_VAR):
+            targets = [
+                w['id'] for t in tabs_of(list_os_windows(boss)) for w in t['windows']
+                    if w['user_vars'].get(TARGET_VAR) == token
+            ]
+            if targets:
+                set_user_var(boss, targets, TARGET_VAR, None)
+
+        reset_theme(boss, window.id)
+
+    call_soon(clean_up)
+
+# `set-colors --reset` resets all windows and the tab bars, not just the dock,
+# which includes the cursor of the targets. Skip it when another broadcasting
+# window has the focus, e.g. the dock replacing this one when the broadcast is
+# refreshed, as this dock can lose the focus or close after that one applied
+# the theme.
+def reset_theme(boss: Boss, dock_id: int) -> None:
+    focused = focused_window(list_os_windows(boss))
+    if focused is not None and focused['id'] != dock_id and is_broadcasting(focused['user_vars']):
+        return
+
+    boss.call_remote_control(None, ('set-colors', '--reset'))
 
 # Only called when this file is loaded as a global watcher.
 #
@@ -416,13 +451,45 @@ def on_tab_bar_dirty(boss: Boss, window: Window, data: dict[str, Any]) -> None:
     if refresh_scheduled or not following_docks:
         return
 
+    # The refresh is still marked as scheduled while it runs, as `set-colors`
+    # marks the tab bars dirty too, which would schedule another refresh after
+    # each one.
     def refresh() -> None:
         global refresh_scheduled
-        refresh_scheduled = False
-        refresh_followed_targets(boss)
+        try:
+            refresh_followed_targets(boss)
+            # Also color the cursor of new targets, if their dock has the focus
+            os_windows = list_os_windows(boss)
+            focused = focused_window(os_windows)
+            if focused is not None and FOLLOW_VAR in focused['user_vars']:
+                color_target_cursors(boss, os_windows, focused['user_vars'])
+        finally:
+            refresh_scheduled = False
 
     refresh_scheduled = True
     call_soon(refresh)
+
+# Apply the cursor settings of the theme to the targets of the dock. Like the
+# rest of the theme, they are reset when the dock loses the focus.
+#
+# A window that stops being a target while the dock keeps the focus keeps them
+# until then. But it doesn't show its cursor anymore (see
+# sync_broadcast_session) until it gets the focus, which the dock loses.
+def color_target_cursors(boss: Boss, os_windows: list[dict[str, Any]], dock_user_vars: dict[str, str]) -> None:
+    settings = theme_cursor_settings()
+    targets = current_targets(os_windows, dock_user_vars)
+    if settings and targets:
+        boss.call_remote_control(None, ('set-colors', f'--match={match_ids(targets)}', *settings))
+
+# The CURSOR_SETTINGS of the theme file, as `set-colors` arguments.
+def theme_cursor_settings() -> list[str]:
+    settings = []
+    with open(config_path(THEME_FILE)) as f:
+        for line in f:
+            parts = line.split(maxsplit=1)
+            if len(parts) == 2 and parts[0] in CURSOR_SETTINGS:
+                settings.append(f'{parts[0]}={parts[1].strip()}')
+    return settings
 
 # KITTY INTERNALS ##############################################################
 #
