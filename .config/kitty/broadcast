@@ -31,7 +31,9 @@
 #
 # Add a key mapping to your `kitty.conf`:
 #
-#    map f4 launch --type background --allow-remote-control ~/.config/kitty/broadcast @active-kitty-window-id
+#    map f4 remote_control_script broadcast
+#
+# The relative path is resolved with respect to the kitty config directory.
 #
 # You can then hit F4 on your keyboard in a window to open a broadcast dock at
 # the top of its tab. Hit F4 again or Ctrl+Esc in the dock to end the broadcast.
@@ -47,6 +49,8 @@ set -e
 # and with 1 row the dock is blank.
 DOCK_SIZE=1
 
+# The window the wrapper was called from.
+#
 # As of kitty 0.36.3, `kitten @ ls` reports the self window inconsistently for
 # scripts launched in the background, and the `--self` option and `state:self`
 # match expression are also impacted. It can also fix itself after some time,
@@ -54,15 +58,30 @@ DOCK_SIZE=1
 # Scripts can be launched in the background with `remote_control_script` and
 # `launch --type background`.
 #
-# To work around this, use `launch --type background --allow-remote-control` and
-# pass the special argument `@active-kitty-window-id` [1] (it is not resolved
-# when used with `remote_control_script`).
+# To work around this, the `state:focused` match expression is used instead,
+# which doesn't depend on the self window. It matches the active window of the
+# active tab in the last focused OS window, the same window that the special
+# argument `@active-kitty-window-id` [1] of `launch` resolves to. That argument
+# can still be passed to the wrapper with `launch --type background
+# --allow-remote-control` (it is not resolved when used with
+# `remote_control_script`).
 #
-# Note: it resolves to the non-overlay window of the active group, or to the
+# Note: `is_focused` in the output of an unfiltered `kitten @ ls` can't be used
+# on its own, as it is set on the active window of every tab in the focused OS
+# window.
+#
+# Note: the window is the non-overlay window of the active group, or the
 # broadcast dock when it has the focus.
 #
 # [1]: https://sw.kovidgoyal.net/kitty/launch/#special-arguments
-SELF="${1:?Missing @active-kitty-window-id argument}"
+SELF="${1:-$(
+    kitten @ ls --match state:focused \
+    | jq '.[0].tabs[0].windows[0].id // empty'
+)}"
+if [ -z "$SELF" ]; then
+    echo "broadcast: no focused window" >&2
+    exit 1
+fi
 
 # The tab containing the self window.
 tab="$(
